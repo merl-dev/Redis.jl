@@ -1,3 +1,5 @@
+# TODO: add `start`, and `done`, preserve state
+
 """
         StreamScanner
 

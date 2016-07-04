@@ -1,13 +1,23 @@
 module Redis
 
+if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
+    include("../deps/deps.jl")
+else
+    Pkg.build("HiRedis")
+end
+
+abstract RedisConnectionBase
+abstract SubscribableConnection <: RedisConnectionBase
+
 using Base.Dates
 
-import Base.get, Base.keys, Base.time
+import Base.get, Base.keys, Base.time, DataStructures.OrderedSet
 
 export RedisException, ConnectionException, ServerException, ProtocolException, ClientException
 export RedisConnection, SentinelConnection, TransactionConnection, SubscriptionConnection,
 disconnect, is_connected, open_transaction, reset_transaction, open_subscription,
 open_pipeline, read_pipeline
+export RedisContext, RedisReply, RedisReader
 # Key commands
 export del, dump, exists, expire, expireat, keys,
        migrate, move, persist, pexpire, pexpireat,
@@ -60,11 +70,15 @@ export StreamScanner, KeyScanner, SetScanner, OrderedSetScanner, HashScanner, ne
 # TODO: add more, consider a separate constants.jl
 export REDIS_PERSISTENT_KEY, REDIS_EXPIRED_KEY
 
+include("libhiredis.jl")
 include("exceptions.jl")
 include("connection.jl")
-include("client.jl")
-include("parser.jl")
+include("conversions.jl")
+include("sentinel.jl")
+include("pubsub.jl")
 include("commands.jl")
+include("command_defs.jl")
 include("streamscan.jl")
+
 
 end

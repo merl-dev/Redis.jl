@@ -173,7 +173,7 @@ In order to simplify use of the Redis scan commands, SCAN (keys), SSCAN (sets), 
 
 `match` is used for pattern matching, and defaults to "\*",  while `count` specifies the number of items returned per iteration and defaults to 1.
 
-Two methods are provided for scanning:
+Three methods are provided for scanning:
 
 `next!(ss::StreamScanner, count)` retrieves `count` elements as an `Array` or `Dict`.  `count` defaults to the value
 used in the constructor, but can be modified per request. __As per the Redis spec, each call to `next!` may return one or
