@@ -11,16 +11,22 @@ Redis.jl is a fully-featured Redis client for the Julia programming language. Th
 
 Merges a debugged version of HiRedis.jl, based on the C-language hiredis interface to Redis. Thus far all basic commands pass tests without modification to the original Redis.jl API. Performance enhancements are significant, see BenchmarkNotes.md for examples.  
 
+In order to maximize performance, send string commands using `do_command`:  for example, instead of `set(conn, "akey", "avalue")`,
+use `do_command(conn, "set akey avalue")` in order to bypass command parsing.  In addition, for use cases where Redis server responses are not required immediately, use pipeline commands: `pipeline_command(conn, "set akey value")`. In certain scenarios further performance enhancements can be attained by setting the Julia `ENV` key "REDIS_CONVERT_REPLY" to `false` before `using Redis`.  This will bypass all response conversions and return the original Redis server response.
+
 Methods have been moved around to new files, awaiting finalization.  This will likely revert to something closer to original when the refactor and optimizations have been completed.
 
-In addition, a new Julia ENV setting "REDIS_CONVERT_REPLY" enables/disables `convert_response`
-methods for users requiring original Redis server responses.
 
 _TODO_:
-* `keytype` command returning "OK" and not type, causing `StreamScanners` to fail
-* Pipelines, Transactions, Sentinels, and Pub/Sub need adjustments to pass tests
+* ALOT
+* key-prefixing
+* ~~Pipelines~~, Transactions, Sentinels, and Pub/Sub need refactoring to pass tests
+* Add `start`, and `done` to `StreamScanners` -- not sure we need to implement an iterator interface since they aren't true iterators
+* Implement the libhiredis `RedisAsyncContext` and `redisAsyncCommand` interfaces
 * Clusters remain without commands nor tests
-* Write "REDIS_CONVERT_REPLY" test suite
+* Write "REDIS_CONVERT_REPLY" test suite (basically, duplicate current test suite)
+* create a clean benchmark suite
+* see ROADMAP.md
 
 ## Basics
 
