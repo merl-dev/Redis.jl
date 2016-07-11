@@ -218,7 +218,6 @@ end
 # TODO: PipelineConnection and TransactionConnection
 function evalscript{T<:AbstractString}(conn::RedisConnection, script::T, numkeys::Integer, args::Array{T, 1})
     fc = flatten_command("eval", script, numkeys, args)
-    println(typeof(fc), " ", fc)
     response = do_command(conn, flatten_command("eval", script, numkeys, args))
     convert_eval_response(Any, response)
 end

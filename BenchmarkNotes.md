@@ -202,14 +202,36 @@ __performance ==> 26K writes per second__
 __with libhiredis__
 
 ```
+function pipeTest()
+   for i=1:1000000
+     Redis.pipeline_command(pipe, "set newkey abc")
+   end
+   result = read_pipeline(pipe)
+end
 ```
+
+```
+@benchmark pipeTest()
+BenchmarkTools.Trial:
+  samples:          5
+  evals/sample:     1
+  time tolerance:   5.00%
+  memory tolerance: 1.00%
+  memory estimate:  30.52 mb
+  allocs estimate:  2000002
+  minimum time:     1.11 s (0.18% GC)
+  median time:      1.11 s (0.18% GC)
+  mean time:        1.11 s (0.22% GC)
+  maximum time:     1.12 s (0.37% GC)
+```
+__performance ==> 893K writes per second__ __WHOA!__
 
 __HiRedis__
 
 ```
 function pipeTest()
     for i=1:1000000
-       kvset("newkey", "abc", pipeline=true)
+       pipeline_command("set newkey abc")
     end
     result = get_reply()
 end
@@ -218,15 +240,15 @@ end
 ```
 @benchmark pipeTest()
 BenchmarkTools.Trial:
-  samples:          3
+  samples:          2
   evals/sample:     1
   time tolerance:   5.00%
   memory tolerance: 1.00%
-  memory estimate:  237.87 mb
-  allocs estimate:  5998998
-  minimum time:     2.46 s (2.20% GC)
-  median time:      2.46 s (2.52% GC)
-  mean time:        2.46 s (2.46% GC)
-  maximum time:     2.46 s (2.67% GC)
+  memory estimate:  70.02 mb
+  allocs estimate:  2998998
+  minimum time:     2.49 s (2.40% GC)
+  median time:      2.51 s (3.50% GC)
+  mean time:        2.51 s (3.50% GC)
+  maximum time:     2.52 s (4.59% GC)
 ```
 __performance ==> 406K writes per second__

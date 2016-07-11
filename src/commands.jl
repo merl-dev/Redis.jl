@@ -118,7 +118,7 @@ Appends commands to an output buffer. Pipelining is sending a batch of commands
 to redis to be processed in bulk. It cuts down the number of network requests.
 """
 function pipeline_command(conn::SubscribableConnection, command::AbstractString)
-    if !isConnected(Conn)
+    if !isConnected(conn)
         conn = restart(conn)
     end
     ccall((:redisAppendCommand, "libhiredis"), Int32, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, command)
