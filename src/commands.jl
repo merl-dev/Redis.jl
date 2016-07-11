@@ -39,7 +39,7 @@ if !haskey(ENV, "REDIS_CONVERT_REPLY") || ENV["REDIS_CONVERT_REPLY"] == "true"
                     do_command(conn, flatten_command($(command...), $(args...)))
                 end
                 function $(func_name)(conn::PipelineConnection, $(args...))
-                    do_command(conn, flatten_command($(command...), $(args...)))
+                    pipeline_command(conn, flatten_command($(command...), $(args...)))
                     conn.count += 1
                 end
             end
@@ -53,7 +53,7 @@ if !haskey(ENV, "REDIS_CONVERT_REPLY") || ENV["REDIS_CONVERT_REPLY"] == "true"
                     do_command(conn, flatten_command($(command...)))
                 end
                 function $(func_name)(conn::PipelineConnection)
-                    do_command(conn, flatten_command($(command...)))
+                    pipeline_command(conn, flatten_command($(command...)))
                     conn.count += 1
                 end
             end
@@ -65,7 +65,6 @@ else
         command = lstrip(command,'_')
         command = split(command, '_')
 
-
         if length(args) > 0
             return quote
                 function $(func_name)(conn::RedisConnection, $(args...))
@@ -75,7 +74,7 @@ else
                     do_command(conn, flatten_command($(command...), $(args...)))
                 end
                 function $(func_name)(conn::PipelineConnection, $(args...))
-                    do_command(conn, flatten_command($(command...), $(args...)))
+                    pipeline_command(conn, flatten_command($(command...), $(args...)))
                     conn.count += 1
                 end
             end
@@ -88,7 +87,7 @@ else
                     do_command(conn, flatten_command($(command...)))
                 end
                 function $(func_name)(conn::PipelineConnection)
-                    do_command(conn, flatten_command($(command...)))
+                    pipeline_command(conn, flatten_command($(command...)))
                     conn.count += 1
                 end
             end
@@ -97,7 +96,7 @@ else
 end
 "Issues a blocking command to hiredis."
 function do_command(conn::RedisConnectionBase, command::AbstractString)
-    if conn.context == 0 # !isdefined(:redisContext)
+    if !isConnected(conn)
         conn = restart(conn)
     end
     reply = ccall((:redisvCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, command)
@@ -105,26 +104,38 @@ function do_command(conn::RedisConnectionBase, command::AbstractString)
 end
 
 "Issues a blocking command to hiredis, accepting command arguments as an Array."
-function do_command{S<:Any}(conn::RedisConnectionBase, argv::Array{S,1})
-    if conn.context == 0 # !isdefined(:redisContext)
+function do_command{S<:AbstractString}(conn::RedisConnectionBase, argv::Array{S, 1})
+    if !isConnected(conn)
         conn = restart(conn)
     end
-    reply = ccall((:redisCommandArgv, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Int32, Ptr{Ptr{UInt8}}, Ptr{UInt}), conn.context, length(argv), argv, C_NULL)
+    reply = ccall((:redisCommandArgv, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Int32, Ptr{Ptr{UInt8}},
+                Ptr{UInt}), conn.context, length(argv), argv, C_NULL)
     get_result(reply)
 end
 
 """
-redundant
+Appends commands to an output buffer. Pipelining is sending a batch of commands
+to redis to be processed in bulk. It cuts down the number of network requests.
 """
-function do_command_no_reply{S<:Any}(conn::RedisConnectionBase, argv::Array{S,1})
-    if conn.context == 0 # !isdefined(:redisContext)
+function pipeline_command(conn::SubscribableConnection, command::AbstractString)
+    if !isConnected(Conn)
         conn = restart(conn)
     end
-    reply = ccall((:redisCommandArgv, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Int32, Ptr{Ptr{UInt8}}, Ptr{UInt}), conn.context, length(argv), argv, C_NULL)
-    get_result(reply)
+    ccall((:redisAppendCommand, "libhiredis"), Int32, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, command)
 end
 
-"Switches between blocking and pipelined command execution according to flag."
-function docommand(conn::RedisConnectionBase, cmd::AbstractString, pipeline::Bool)
-    (pipeline || (pipelinedCommandCount::Integer > 0)) ? pipeline_command(cmd) : do_command(conn, cmd)
+"""
+Appends commands to an output buffer. Pipelining is sending a batch of commands
+to redis to be processed in bulk. It cuts down the number of network requests.
+"""
+function pipeline_command{S<:AbstractString}(conn::SubscribableConnection, argv::Array{S, 1})
+    if !isConnected(conn)
+        conn = restart(conn)
+    end
+    ccall((:redisAppendCommandArgv, "libhiredis"), Int32, (Ptr{RedisContext}, Int32, Ptr{Ptr{UInt8}}, Ptr{UInt}), conn.context, length(argv), argv, C_NULL)
 end
+
+#"Switches between blocking and pipelined command execution according to flag."
+#function docommand(conn::RedisConnectionBase, cmd::AbstractString, pipeline::Bool)
+#    (pipeline || (pipelinedCommandCount::Integer > 0)) ? pipeline_command(cmd) : do_command(conn, cmd)
+#end

@@ -71,8 +71,14 @@ type KeyScanner <: StreamScanner
 end
 
 function next!(KS::KeyScanner; count=KS.count)
-    KS.cursor, result = scan(KS.conn, parse(Int64, KS.cursor), "MATCH", KS.match, "COUNT", count)
-    collect(result)
+    sresult= scan(KS.conn, parse(Int64, KS.cursor), "MATCH", KS.match, "COUNT", count)
+    if length(sresult) == 1
+        KS.cursor = "0"
+        Array{AbstractString}[]
+    else
+        KS.cursor = sresult[1]
+        collect(sresult[2])
+    end
 end
 
 type SetScanner <: StreamScanner
@@ -90,8 +96,14 @@ type SetScanner <: StreamScanner
 end
 
 function next!(SS::SetScanner; count=SS.count)
-    SS.cursor, result = sscan(SS.conn, SS.key, parse(Int64, SS.cursor), "MATCH", SS.match, "COUNT", count)
-    collect(result)
+    sresult = sscan(SS.conn, SS.key, parse(Int64, SS.cursor), "MATCH", SS.match, "COUNT", count)
+    if length(sresult) == 1
+        SS.cursor = "0"
+        Array{AbstractString}[]
+    else
+        SS.cursor = sresult[1]
+        collect(sresult[2])
+    end
 end
 
 type OrderedSetScanner <: StreamScanner

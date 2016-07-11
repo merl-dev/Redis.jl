@@ -209,7 +209,7 @@ __HiRedis__
 ```
 function pipeTest()
     for i=1:1000000
-       kvset("newkey, "abc", pipeline=true)
+       kvset("newkey", "abc", pipeline=true)
     end
     result = get_reply()
 end

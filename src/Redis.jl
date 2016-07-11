@@ -1,3 +1,4 @@
+__precompile__()
 module Redis
 
 if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
@@ -15,7 +16,7 @@ import Base.get, Base.keys, Base.time, DataStructures.OrderedSet
 
 export RedisException, ConnectionException, ServerException, ProtocolException, ClientException
 export RedisConnection, SentinelConnection, TransactionConnection, SubscriptionConnection,
-disconnect, is_connected, open_transaction, reset_transaction, open_subscription,
+disconnect, isConnected, open_transaction, reset_transaction, open_subscription,
 open_pipeline, read_pipeline
 export RedisContext, RedisReply, RedisReader
 # Key commands

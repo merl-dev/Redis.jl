@@ -50,6 +50,12 @@ immutable RedisReader
     privdata::Ptr{Void}
 end
 
+type TcpStruct
+    host
+    source_addr
+    port
+end
+
 immutable RedisContext
     err::Int32
     errstr::Ptr{UInt8}
@@ -74,18 +80,6 @@ function free_reply_object(redisReply)
 end
 
 """
-Appends commands to an output buffer. Pipelining is sending a batch of commands
-to redis to be processed in bulk. It cuts down the number of network requests.
-"""
-function pipeline_command(conn::SubscribableConnection, command::AbstractString)
-    if redisContext == 0 # !isdefined(:redisContext)
-        start_session()
-    end
-    conn.count += 1
-    ccall((:redisAppendCommand, "libhiredis"), Int32, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, command)
-end
-
-"""
 In a blocking context, this function first checks if there are unconsumed
 replies to return and returns one if so. Otherwise, it flushes the output
 buffer to the socket and reads until it has a reply.
@@ -95,26 +89,21 @@ function call_get_reply(conn::SubscribableConnection, redisReply::Array{Ptr{Redi
 end
 
 """
-Calls call_get_reply until the pipelinedCommandCount is 0 or an error
-is returned. Adds the results from each reply to an Array, then returns the
-Array.
+Calls call_get_reply and returns one Array with all reponses.
 """
 function get_reply(conn::SubscribableConnection)
-    redisReply = Array(Ptr{RedisReply}, 1)
-    results = Any[]
-    while typeof(conn) == PipelineConnection ? conn.count : 1 > 0 && call_get_reply(conn, redisReply) == REDIS_OK
-        push!(results, get_result(redisReply[1]))
-        conn.count -= 1
+    redisReply = Array{Ptr{RedisReply}, 1}(1)  # RedisRedply**
+    if call_get_reply(conn, redisReply) == REDIS_OK
+        conn.count = 0
     end
-    results
+    get_result(redisReply[1])
 end
 
 # if VERSION <= v"0.4.9"
     """
     Converts the reply object from hiredis into a String, int, or Array as appropriate the the reply type.
 
-    TODO: Arrays could have more depth, for now limited to scans commands which have depth 2,
-    so the final form of this will likely be @generated function?
+    TODO: refac
     """
     function get_result(redisReply::Ptr{RedisReply})
         r = unsafe_load(redisReply)
@@ -126,8 +115,8 @@ end
             ret = Int(r.integer)
         elseif r.rtype == REDIS_REPLY_ARRAY
             no = Int(r.elements)
-            results = Any[]
-            resultsi = Any[] # if there is an inner array
+            results = Union{Nullable{AbstractString},AbstractString}[]
+            resultsi = Union{Nullable{AbstractString}, AbstractString}[] # if there is an inner array
             replies = pointer_to_array(r.element, no)
             for i in 1:no
                 ro = unsafe_load(replies[i])
@@ -140,7 +129,11 @@ end
                     repliesi = pointer_to_array(ro.element, ni)
                     for j in 1:ni
                         rj = unsafe_load(repliesi[j])
-                        push!(resultsi, bytestring(rj.str))
+                        if rj.rtype == REDIS_REPLY_STRING
+                            push!(resultsi, bytestring(rj.str))
+                        else ro.rtype == REDIS_REPLY_NIL
+                            push!(resultsi, Nullable{AbstractString}())
+                        end
                     end
                 end
             end

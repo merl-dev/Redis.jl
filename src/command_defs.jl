@@ -170,7 +170,7 @@ resorting to the use of `Dict`, which cannot be used in the case where all entri
 
 function _build_store_internal(destination, numkeys, keys, weights, aggregate, command)
     length(keys) > 0 || throw(ClientException("Must supply at least one key"))
-    suffix = []
+    suffix = AbstractString[]
     if length(weights) > 0
         suffix = map(string, weights)
         unshift!(suffix, "weights")
@@ -216,10 +216,13 @@ end
 
 # Scripting commands
 # TODO: PipelineConnection and TransactionConnection
-function evalscript(conn::RedisConnection, script, numkeys::Integer, args)
+function evalscript{T<:AbstractString}(conn::RedisConnection, script::T, numkeys::Integer, args::Array{T, 1})
+    fc = flatten_command("eval", script, numkeys, args)
+    println(typeof(fc), " ", fc)
     response = do_command(conn, flatten_command("eval", script, numkeys, args))
     convert_eval_response(Any, response)
 end
+evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(conn, script, 0, AbstractString[])
 
 #################################################################
 # TODO: NEED TO TEST BEYOND THIS POINT
