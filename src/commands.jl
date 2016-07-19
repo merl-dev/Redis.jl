@@ -94,7 +94,7 @@ else
         end
     end
 end
-"Issues a blocking command to hiredis."
+"Issues a blocking command to hiredis, accepting string command"
 function do_command(conn::RedisConnectionBase, command::AbstractString)
     if !isConnected(conn)
         conn = restart(conn)
@@ -124,18 +124,9 @@ function pipeline_command(conn::SubscribableConnection, command::AbstractString)
     ccall((:redisAppendCommand, "libhiredis"), Int32, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, command)
 end
 
-"""
-Appends commands to an output buffer. Pipelining is sending a batch of commands
-to redis to be processed in bulk. It cuts down the number of network requests.
-"""
 function pipeline_command{S<:AbstractString}(conn::SubscribableConnection, argv::Array{S, 1})
     if !isConnected(conn)
         conn = restart(conn)
     end
     ccall((:redisAppendCommandArgv, "libhiredis"), Int32, (Ptr{RedisContext}, Int32, Ptr{Ptr{UInt8}}, Ptr{UInt}), conn.context, length(argv), argv, C_NULL)
 end
-
-#"Switches between blocking and pipelined command execution according to flag."
-#function docommand(conn::RedisConnectionBase, cmd::AbstractString, pipeline::Bool)
-#    (pipeline || (pipelinedCommandCount::Integer > 0)) ? pipeline_command(cmd) : do_command(conn, cmd)
-#end

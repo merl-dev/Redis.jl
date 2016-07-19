@@ -250,7 +250,7 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "debug_object" AbstractString key
 @redisfunction "debug_segfault" Any
 @redisfunction "flushall" AbstractString
-@redisfunction "flushdb" AbstractString Integer
+@redisfunction "flushdb" AbstractString db
 @redisfunction "info" AbstractString
 @redisfunction "info" AbstractString section
 @redisfunction "lastsave" Integer
@@ -260,6 +260,25 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "shutdown" AbstractString option
 @redisfunction "slaveof" AbstractString host port
 @redisfunction "_time" Array{AbstractString, 1}
+
+# Redis Modules
+function module_list(conn)
+    do_command(conn, "module list")
+end
+function module_load(conn, modules...)
+    do_command(conn, "module load $(modules...)")
+end
+@redisfunction "osnew" AbstractString key::AbstractString
+@redisfunction "oscount" Integer key::AbstractString
+@redisfunction "ospush" Integer key::AbstractString newvalue::Integer
+    @redisfunction "ospush" Integer key::AbstractString newvalue::Float64
+@redisfunction "osmean" AbstractString key::AbstractString
+@redisfunction "osvar" AbstractString key::AbstractString
+@redisfunction "osstd" AbstractString key::AbstractString
+@redisfunction "osskew" AbstractString key::AbstractString
+@redisfunction "oskurt" AbstractString key::AbstractString
+@redisfunction "osmerge" AbstractString dest::AbstractString src...
+export module_list, module_load, osnew, oscount, ospush, osmean, osstd, osvar, osskew, oskurt, osmerge
 
 # Sentinel commands
 @sentinelfunction "master" Dict{AbstractString, AbstractString} mastername
