@@ -270,8 +270,7 @@ function module_load(conn, modules...)
 end
 @redisfunction "osnew" AbstractString key::AbstractString
 @redisfunction "oscount" Integer key::AbstractString
-@redisfunction "ospush" Integer key::AbstractString newvalue::Integer
-    @redisfunction "ospush" Integer key::AbstractString newvalue::Float64
+@redisfunction "ospush" Integer key::AbstractString newvalue
 @redisfunction "osmean" AbstractString key::AbstractString
 @redisfunction "osvar" AbstractString key::AbstractString
 @redisfunction "osstd" AbstractString key::AbstractString
@@ -279,6 +278,15 @@ end
 @redisfunction "oskurt" AbstractString key::AbstractString
 @redisfunction "osmerge" AbstractString dest::AbstractString src...
 export module_list, module_load, osnew, oscount, ospush, osmean, osstd, osvar, osskew, oskurt, osmerge
+@redisfunction "linregnew" AbstractString key::AbstractString
+@redisfunction "linregcount" Integer key::AbstractString
+@redisfunction "linregpush" Integer key::AbstractString xvalue yvalue
+@redisfunction "linregslope" AbstractString key::AbstractString
+@redisfunction "linregintercept" AbstractString key::AbstractString
+@redisfunction "linregcov" AbstractString key::AbstractString
+@redisfunction "linregcorr" AbstractString key::AbstractString
+@redisfunction "linregmerge" AbstractString dest::AbstractString src...
+export linregnew, linregcount, linregpush, linregslope, linregintercept, linregcov, linregcorr, linregmerge
 
 # Sentinel commands
 @sentinelfunction "master" Dict{AbstractString, AbstractString} mastername
