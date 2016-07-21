@@ -28,7 +28,6 @@ if !haskey(ENV, "REDIS_CONVERT_REPLY") || ENV["REDIS_CONVERT_REPLY"] == "true"
         command = lstrip(command,'_')
         command = split(command, '_')
 
-
         if length(args) > 0
             return quote
                 function $(func_name)(conn::RedisConnection, $(args...))

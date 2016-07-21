@@ -287,6 +287,13 @@ export module_list, module_load, osnew, oscount, ospush, osmean, osstd, osvar, o
 @redisfunction "linregcorr" AbstractString key::AbstractString
 @redisfunction "linregmerge" AbstractString dest::AbstractString src...
 export linregnew, linregcount, linregpush, linregslope, linregintercept, linregcov, linregcorr, linregmerge
+@redisfunction "exnew" AbstractString key::AbstractString
+@redisfunction "excount" Integer key::AbstractString
+@redisfunction "expush" Integer key::AbstractString newvalue
+@redisfunction "exmin" AbstractString key::AbstractString
+@redisfunction "exmax" AbstractString key::AbstractString
+@redisfunction "exmerge" AbstractString dest::AbstractString src...
+export exnew, excount, expush, exmin, exmax, exmerge
 
 # Sentinel commands
 @sentinelfunction "master" Dict{AbstractString, AbstractString} mastername
