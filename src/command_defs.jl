@@ -256,10 +256,16 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "lastsave" Integer
 @redisfunction "role" Array
 @redisfunction "save" Bool
-@redisfunction "shutdown" AbstractString
-@redisfunction "shutdown" AbstractString option
 @redisfunction "slaveof" AbstractString host port
 @redisfunction "_time" Array{AbstractString, 1}
+
+function shutdown(conn::RedisConnectionBase; save=true)
+    if !isConnected(conn)
+        conn = restart(conn)
+    end
+    reply = ccall((:redisvCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
+        "shutdown " * ifelse(save, "save", "nosave"))
+end
 
 # Redis Modules
 function module_list(conn)
