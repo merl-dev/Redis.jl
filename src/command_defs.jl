@@ -267,13 +267,27 @@ function shutdown(conn::RedisConnectionBase; save=true)
         "shutdown " * ifelse(save, "save", "nosave"))
 end
 
-# Redis Modules
+#= Redis Modules - until Redis 4.0 (fall 2016) requires compiling Redis from unstable branch
+- wget https://github.com/antirez/redis/archive/unstable.tar.gz
+- tar xvzf unstable.tar.gz
+- cd redis-unstable && make && sudo make install
+
+and for the following online stats methods
+- wget https://github.com/merl-dev/OST/archive/master.tar.gz
+- tar xvzf master.tar.gz
+- cd OST-master && make && sudo make install
+
+see
+- https://github.com/RedisLabs/RedisModulesSDK
+- https://github.com/merl-dev/OST for installation and documentation
+=#
 function module_list(conn)
     do_command(conn, "module list")
 end
 function module_load(conn, modules...)
     do_command(conn, "module load $(modules...)")
 end
+export module_list, module_load
 @redisfunction "osnew" AbstractString key::AbstractString
 @redisfunction "oscount" Integer key::AbstractString
 @redisfunction "ospush" Integer key::AbstractString newvalue
@@ -283,7 +297,7 @@ end
 @redisfunction "osskew" AbstractString key::AbstractString
 @redisfunction "oskurt" AbstractString key::AbstractString
 @redisfunction "osmerge" AbstractString dest::AbstractString src...
-export module_list, module_load, osnew, oscount, ospush, osmean, osstd, osvar, osskew, oskurt, osmerge
+export osnew, oscount, ospush, osmean, osstd, osvar, osskew, oskurt, osmerge
 @redisfunction "linregnew" AbstractString key::AbstractString
 @redisfunction "linregcount" Integer key::AbstractString
 @redisfunction "linregpush" Integer key::AbstractString xvalue yvalue
@@ -291,8 +305,10 @@ export module_list, module_load, osnew, oscount, ospush, osmean, osstd, osvar, o
 @redisfunction "linregintercept" AbstractString key::AbstractString
 @redisfunction "linregcov" AbstractString key::AbstractString
 @redisfunction "linregcorr" AbstractString key::AbstractString
+@redisfunction "linregmse" AbstractString key::AbstractString
+@redisfunction "linregpredict" AbstractString key::AbstractString xvalue
 @redisfunction "linregmerge" AbstractString dest::AbstractString src...
-export linregnew, linregcount, linregpush, linregslope, linregintercept, linregcov, linregcorr, linregmerge
+export linregnew, linregcount, linregpush, linregslope, linregintercept, linregcov, linregcorr, linregmse, linregpredict, linregmerge
 @redisfunction "exnew" AbstractString key::AbstractString
 @redisfunction "excount" Integer key::AbstractString
 @redisfunction "expush" Integer key::AbstractString newvalue
