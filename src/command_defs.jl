@@ -317,8 +317,9 @@ export linregnew, linregcount, linregpush, linregslope, linregintercept, linregc
 @redisfunction "exmerge" AbstractString dest::AbstractString src...
 @redisfunction "exinit" AbstractString key::AbstractString n::Integer initmin initmax
 export exnew, excount, expush, exmin, exmax, exmerge, exinit
-@redisfunction "rngnew" AbstractString key::AbstractString seed::UInt64 maxint::UInt64
-@redisfunction "rngreseed" AbstractString key::AbstractString seed::UInt64
+@redisfunction "rngnew" AbstractString key::AbstractString seed...
+@redisfunction "rngnew" AbstractString key::AbstractString seed::Integer maxint::Integer
+@redisfunction "rngreseed" AbstractString key::AbstractString seed::Integer
 @redisfunction "rnglistgsltypes" Array{AbstractString, 1}
 @redisfunction "rngget" AbstractString key::AbstractString
 @redisfunction "rnggetint" Integer key::AbstractString
