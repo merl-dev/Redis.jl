@@ -275,7 +275,7 @@ end
 and for the following online stats methods
 - wget https://github.com/merl-dev/OST/archive/master.tar.gz
 - tar xvzf master.tar.gz
-- cd OST-master && make && sudo make install
+- cd OST-master && make
 
 see
 - https://github.com/RedisLabs/RedisModulesSDK
@@ -315,7 +315,14 @@ export linregnew, linregcount, linregpush, linregslope, linregintercept, linregc
 @redisfunction "exmin" AbstractString key::AbstractString
 @redisfunction "exmax" AbstractString key::AbstractString
 @redisfunction "exmerge" AbstractString dest::AbstractString src...
-export exnew, excount, expush, exmin, exmax, exmerge
+@redisfunction "exinit" AbstractString key::AbstractString n::Integer initmin initmax
+export exnew, excount, expush, exmin, exmax, exmerge, exinit
+@redisfunction "rngnew" AbstractString key::AbstractString seed::UInt64 maxint::UInt64
+@redisfunction "rngreseed" AbstractString key::AbstractString seed::UInt64
+@redisfunction "rnglistgsltypes" Array{AbstractString, 1}
+@redisfunction "rngget" AbstractString key::AbstractString
+@redisfunction "rnggetint" Integer key::AbstractString
+export rngnew, rngreseed, rnglistgsltypes, rngget, rnggetint
 
 # Sentinel commands
 @sentinelfunction "master" Dict{AbstractString, AbstractString} mastername

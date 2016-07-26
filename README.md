@@ -216,6 +216,7 @@ Note the following caveats from the Redis documentation at http://redis.io/comma
 
 __Please refer to the Redis documentation for more details.__
 
+
 ### Notes
 
 Actual API usage can be found in test/redis_tests.jl.
