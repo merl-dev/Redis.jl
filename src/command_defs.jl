@@ -323,7 +323,10 @@ export exnew, excount, expush, exmin, exmax, exmerge, exinit
 @redisfunction "rnglistgsltypes" Array{AbstractString, 1}
 @redisfunction "rngget" AbstractString key::AbstractString
 @redisfunction "rnggetint" Integer key::AbstractString
-export rngnew, rngreseed, rnglistgsltypes, rngget, rnggetint
+@redisfunction "rnggauss" AbstractString key::AbstractString seed...
+@redisfunction "rnggauss" AbstractString key::AbstractString seed::Integer mean::Float64 std::Float64
+@redisfunction "rnggaussget" AbstractString key::AbstractString
+export rngnew, rngreseed, rnglistgsltypes, rngget, rnggetint, rnggauss, rnggaussget
 
 # Sentinel commands
 @sentinelfunction "master" Dict{AbstractString, AbstractString} mastername
