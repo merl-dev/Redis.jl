@@ -203,17 +203,15 @@ end
 #     end
 # end
 #
-# function AsyncConnection(parent::SubscribableConnection)
-#     context = ccall((:redisAsyncConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), parent.host, parent.port)
-#     if !_isConnected(context)
-#         throw(ConnectionException("Failed to create pipeline"))
-#     else
-#         subscription_connection = SubscriptionConnection(parent.host,
-#             parent.port, parent.password, parent.db, Dict{AbstractString, Function}(),
-#             Dict{AbstractString, Function}(), context)
-#         on_connect(subscription_connection)
-#     end
-# end
-# export AsyncConnection
-#
-# nullcb(err) = nothing
+function AsyncConnection(parent::SubscribableConnection)
+    context = ccall((:redisAsyncConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), parent.host, parent.port)
+    if !_isConnected(context)
+        throw(ConnectionException("Failed to create pipeline"))
+    else
+        subscription_connection = SubscriptionConnection(parent.host,
+            parent.port, parent.password, parent.db, Dict{AbstractString, Function}(),
+            Dict{AbstractString, Function}(), context)
+        on_connect(subscription_connection)
+    end
+end
+export AsyncConnection

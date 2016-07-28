@@ -326,7 +326,18 @@ export exnew, excount, expush, exmin, exmax, exmerge, exinit
 @redisfunction "rnggauss" AbstractString key::AbstractString seed...
 @redisfunction "rnggauss" AbstractString key::AbstractString seed::Integer mean::Float64 std::Float64
 @redisfunction "rnggaussget" AbstractString key::AbstractString
-export rngnew, rngreseed, rnglistgsltypes, rngget, rnggetint, rnggauss, rnggaussget
+@redisfunction "rnggaussprob" Float64 key::AbstractString x::Float64
+@redisfunction "rngpoisson" AbstractString key::AbstractString seed::Integer mean::Float64
+@redisfunction "rngpoissonget" Integer key::AbstractString
+@redisfunction "rngpoissonprob" Float64 key::AbstractString x::Integer
+@redisfunction "rngbinomial" AbstractString key::AbstractString seed::Integer n::Integer p::Float64
+@redisfunction "rngbinomialget" Integer key::AbstractString
+@redisfunction "rngbinomialprob" Float64 key::AbstractString x::Integer
+export rngnew, rngreseed, rnglistgsltypes,
+       rngget, rnggetint,
+       rnggauss, rnggaussget, rnggaussprob,
+       rngpoisson, rngpoissonget, rngpoissonprob,
+       rngbinomial, rngbinomialget, rngbinomialprob
 
 # Sentinel commands
 @sentinelfunction "master" Dict{AbstractString, AbstractString} mastername
