@@ -288,44 +288,52 @@ function module_load(conn, modules...)
     do_command(conn, "module load $(modules...)")
 end
 export module_list, module_load
+
+# online moments
 @redisfunction "osnew" AbstractString key::AbstractString
 @redisfunction "oscount" Integer key::AbstractString
 @redisfunction "ospush" Integer key::AbstractString newvalue
-@redisfunction "osmean" AbstractString key::AbstractString
-@redisfunction "osvar" AbstractString key::AbstractString
-@redisfunction "osstd" AbstractString key::AbstractString
-@redisfunction "osskew" AbstractString key::AbstractString
-@redisfunction "oskurt" AbstractString key::AbstractString
+@redisfunction "osmean" Float64 key::AbstractString
+@redisfunction "osvar" Float64 key::AbstractString
+@redisfunction "osstd" Float64 key::AbstractString
+@redisfunction "osskew" Float64 key::AbstractString
+@redisfunction "oskurt" Float64 key::AbstractString
 @redisfunction "osmerge" AbstractString dest::AbstractString src...
 export osnew, oscount, ospush, osmean, osstd, osvar, osskew, oskurt, osmerge
+
+# online linreg
 @redisfunction "linregnew" AbstractString key::AbstractString
 @redisfunction "linregcount" Integer key::AbstractString
 @redisfunction "linregpush" Integer key::AbstractString xvalue yvalue
-@redisfunction "linregslope" AbstractString key::AbstractString
-@redisfunction "linregintercept" AbstractString key::AbstractString
-@redisfunction "linregcov" AbstractString key::AbstractString
-@redisfunction "linregcorr" AbstractString key::AbstractString
-@redisfunction "linregmse" AbstractString key::AbstractString
-@redisfunction "linregpredict" AbstractString key::AbstractString xvalue
+@redisfunction "linregslope" Float64 key::AbstractString
+@redisfunction "linregintercept" Float64 key::AbstractString
+@redisfunction "linregcov" Float64 key::AbstractString
+@redisfunction "linregcorr" Float64 key::AbstractString
+@redisfunction "linregmse" Float64 key::AbstractString
+@redisfunction "linregpredict" Float64 key::AbstractString xvalue
 @redisfunction "linregmerge" AbstractString dest::AbstractString src...
 export linregnew, linregcount, linregpush, linregslope, linregintercept, linregcov, linregcorr, linregmse, linregpredict, linregmerge
+
+# online extrema
 @redisfunction "exnew" AbstractString key::AbstractString
 @redisfunction "excount" Integer key::AbstractString
 @redisfunction "expush" Integer key::AbstractString newvalue
-@redisfunction "exmin" AbstractString key::AbstractString
-@redisfunction "exmax" AbstractString key::AbstractString
+@redisfunction "exmin" Float64 key::AbstractString
+@redisfunction "exmax" Float64 key::AbstractString
 @redisfunction "exmerge" AbstractString dest::AbstractString src...
 @redisfunction "exinit" AbstractString key::AbstractString n::Integer initmin initmax
 export exnew, excount, expush, exmin, exmax, exmerge, exinit
+
+# rngs
 @redisfunction "rngnew" AbstractString key::AbstractString seed...
 @redisfunction "rngnew" AbstractString key::AbstractString seed::Integer maxint::Integer
 @redisfunction "rngreseed" AbstractString key::AbstractString seed::Integer
 @redisfunction "rnglistgsltypes" Array{AbstractString, 1}
-@redisfunction "rngget" AbstractString key::AbstractString
+@redisfunction "rngget" Float64 key::AbstractString
 @redisfunction "rnggetint" Integer key::AbstractString
 @redisfunction "rnggauss" AbstractString key::AbstractString seed...
 @redisfunction "rnggauss" AbstractString key::AbstractString seed::Integer mean::Float64 std::Float64
-@redisfunction "rnggaussget" AbstractString key::AbstractString
+@redisfunction "rnggaussget" Float64 key::AbstractString
 @redisfunction "rnggaussprob" Float64 key::AbstractString x::Float64
 @redisfunction "rngpoisson" AbstractString key::AbstractString seed::Integer mean::Float64
 @redisfunction "rngpoissonget" Integer key::AbstractString
