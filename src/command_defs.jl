@@ -273,13 +273,13 @@ end
 - cd redis-unstable && make && sudo make install
 
 and for the following online stats methods
-- wget https://github.com/merl-dev/OST/archive/master.tar.gz
+- wget https://github.com/merl-dev/RediStats/archive/master.tar.gz
 - tar xvzf master.tar.gz
-- cd OST-master && make
+- cd RediStats-master && make
 
 see
 - https://github.com/RedisLabs/RedisModulesSDK
-- https://github.com/merl-dev/OST for installation and documentation
+- https://github.com/merl-dev/RediStats for installation and documentation
 =#
 function module_list(conn)
     do_command(conn, "module list")
@@ -292,7 +292,7 @@ export module_list, module_load
 # online moments
 @redisfunction "osnew" AbstractString key::AbstractString
 @redisfunction "oscount" Integer key::AbstractString
-@redisfunction "ospush" Integer key::AbstractString newvalue
+@redisfunction "ospush" Integer key::AbstractString newvalues...
 @redisfunction "osmean" Float64 key::AbstractString
 @redisfunction "osvar" Float64 key::AbstractString
 @redisfunction "osstd" Float64 key::AbstractString
@@ -304,7 +304,7 @@ export osnew, oscount, ospush, osmean, osstd, osvar, osskew, oskurt, osmerge
 # online linreg
 @redisfunction "linregnew" AbstractString key::AbstractString
 @redisfunction "linregcount" Integer key::AbstractString
-@redisfunction "linregpush" Integer key::AbstractString xvalue yvalue
+@redisfunction "linregpush" Integer key::AbstractString values...
 @redisfunction "linregslope" Float64 key::AbstractString
 @redisfunction "linregintercept" Float64 key::AbstractString
 @redisfunction "linregcov" Float64 key::AbstractString
@@ -317,7 +317,7 @@ export linregnew, linregcount, linregpush, linregslope, linregintercept, linregc
 # online extrema
 @redisfunction "exnew" AbstractString key::AbstractString
 @redisfunction "excount" Integer key::AbstractString
-@redisfunction "expush" Integer key::AbstractString newvalue
+@redisfunction "expush" Integer key::AbstractString newvalue...
 @redisfunction "exmin" Float64 key::AbstractString
 @redisfunction "exmax" Float64 key::AbstractString
 @redisfunction "exmerge" AbstractString dest::AbstractString src...
@@ -335,17 +335,23 @@ export exnew, excount, expush, exmin, exmax, exmerge, exinit
 @redisfunction "rnggauss" AbstractString key::AbstractString seed::Integer mean::Float64 std::Float64
 @redisfunction "rnggaussget" Float64 key::AbstractString
 @redisfunction "rnggaussprob" Float64 key::AbstractString x::Float64
+@redisfunction "rnggaussarr" Float64 key::AbstractString seed::Integer mean::Float64 std::Float64 N::Integer
 @redisfunction "rngpoisson" AbstractString key::AbstractString seed::Integer mean::Float64
 @redisfunction "rngpoissonget" Integer key::AbstractString
 @redisfunction "rngpoissonprob" Float64 key::AbstractString x::Integer
+@redisfunction "rngpoissonarr" Float64 key::AbstractString seed::Integer mean::Float64 N::Integer
 @redisfunction "rngbinomial" AbstractString key::AbstractString seed::Integer n::Integer p::Float64
 @redisfunction "rngbinomialget" Integer key::AbstractString
 @redisfunction "rngbinomialprob" Float64 key::AbstractString x::Integer
+@redisfunction "rngarrnew" AbstractString key::AbstractString arrtype::AbstractString len::Integer
+@redisfunction "rngarrdesc" AbstractString key::AbstractString
 export rngnew, rngreseed, rnglistgsltypes,
        rngget, rnggetint,
        rnggauss, rnggaussget, rnggaussprob,
        rngpoisson, rngpoissonget, rngpoissonprob,
-       rngbinomial, rngbinomialget, rngbinomialprob
+       rngbinomial, rngbinomialget, rngbinomialprob,
+       rngarrnew, rngarrdesc,
+       rngpoissonarr, rnggaussarr 
 
 # Sentinel commands
 @sentinelfunction "master" Dict{AbstractString, AbstractString} mastername
