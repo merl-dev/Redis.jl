@@ -335,23 +335,29 @@ export exnew, excount, expush, exmin, exmax, exmerge, exinit
 @redisfunction "rnggauss" AbstractString key::AbstractString seed::Integer mean::Float64 std::Float64
 @redisfunction "rnggaussget" Float64 key::AbstractString
 @redisfunction "rnggaussprob" Float64 key::AbstractString x::Float64
-@redisfunction "rnggaussarr" Float64 key::AbstractString seed::Integer mean::Float64 std::Float64 N::Integer
+@redisfunction "rnggaussarr" AbstractString key::AbstractString seed::Integer mean::Float64 std::Float64 N::Integer
 @redisfunction "rngpoisson" AbstractString key::AbstractString seed::Integer mean::Float64
 @redisfunction "rngpoissonget" Integer key::AbstractString
 @redisfunction "rngpoissonprob" Float64 key::AbstractString x::Integer
-@redisfunction "rngpoissonarr" Float64 key::AbstractString seed::Integer mean::Float64 N::Integer
+@redisfunction "rngpoissonarr" AbstractString key::AbstractString seed::Integer mean::Float64 N::Integer
 @redisfunction "rngbinomial" AbstractString key::AbstractString seed::Integer n::Integer p::Float64
 @redisfunction "rngbinomialget" Integer key::AbstractString
 @redisfunction "rngbinomialprob" Float64 key::AbstractString x::Integer
-@redisfunction "rngarrnew" AbstractString key::AbstractString arrtype::AbstractString len::Integer
+@redisfunction "rngbinomialarr" AbstractString key::AbstractString seed::Integer n::Integer p::Float64 N::Integer
+@redisfunction "rngexp" AbstractString key::AbstractString seed::Integer mean::Float64
+@redisfunction "rngexpget" Float64 key::AbstractString
+@redisfunction "rngexpprob" Float64 key::AbstractString x::Float64
+@redisfunction "rngexparr" Float64 key::AbstractString seed::Integer mean::Float64 N::Integer
 @redisfunction "rngarrdesc" AbstractString key::AbstractString
+@redisfunction "rngarrayrange" Array{AbstractString, 1} key::AbstractString start::Integer stop::Integer
 export rngnew, rngreseed, rnglistgsltypes,
-       rngget, rnggetint,
-       rnggauss, rnggaussget, rnggaussprob,
-       rngpoisson, rngpoissonget, rngpoissonprob,
-       rngbinomial, rngbinomialget, rngbinomialprob,
-       rngarrnew, rngarrdesc,
-       rngpoissonarr, rnggaussarr 
+       rngget, rnggetint, 
+       rnggauss, rnggaussget, rnggaussprob, rnggaussarr,
+       rngpoisson, rngpoissonget, rngpoissonprob, rngpoissonarr,
+       rngbinomial, rngbinomialget, rngbinomialprob, rngbinomialarr,
+       rngexp, rngexpget, rngexpprob, rngexparr,
+       rngarrdesc, rngarrayrange
+         
 
 # Sentinel commands
 @sentinelfunction "master" Dict{AbstractString, AbstractString} mastername
