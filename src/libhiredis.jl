@@ -99,7 +99,7 @@ function get_reply(conn::SubscribableConnection)
     get_result(redisReply[1])
 end
 
-# if VERSION <= v"0.4.9"
+if VERSION <= v"0.4.9"
     """
     Converts the reply object from hiredis into a String, int, or Array as appropriate the the reply type.
 
@@ -146,35 +146,35 @@ end
         free_reply_object(redisReply)
         ret
     end
-# else
-#     """
-#     Converts the reply object from hiredis into a String, int, or Array
-#     as appropriate the the reply type.
-#     """
-#     function get_result(redisReply::Ptr{RedisReply})
-#         r = unsafe_load(redisReply)
-#         if r.rtype == REDIS_REPLY_ERROR
-#             error(unsafe_string(r.str))
-#         end
-#         ret = Nullable{AbstractString}(nothing)
-#         if r.rtype == REDIS_OK || r.rtype == REDIS_REPLY_STRING
-#             ret = unsafe_string(r.str)
-#         elseif r.rtype == REDIS_REPLY_INTEGER
-#             ret = Int64(r.integer)
-#         elseif r.rtype == REDIS_REPLY_ARRAY
-#             n = Int64(r.elements)
-#             results = Vector{Union{AbstractString,Nullable{AbstractString}}}(n)
-#             replies = unsafe_wrap(Array, r.element, n)
-#             for i in 1:n
-#                 ri = unsafe_load(replies[i])
-#                 results[i] = ri.str == C_NULL ? Nullable{AbstractString}() : unsafe_string(ri.str)
-#             end
-#             ret = results
-#         end
-#         free_reply_object(redisReply)
-#         ret
-#     end
-# end
+else
+    """
+    Converts the reply object from hiredis into a String, int, or Array
+    as appropriate the the reply type.
+    """
+    function get_result(redisReply::Ptr{RedisReply})
+        r = unsafe_load(redisReply)
+        if r.rtype == REDIS_REPLY_ERROR
+            error(unsafe_string(r.str))
+        end
+        ret = Nullable{AbstractString}(nothing)
+        if r.rtype == REDIS_OK || r.rtype == REDIS_REPLY_STRING
+            ret = unsafe_string(r.str)
+        elseif r.rtype == REDIS_REPLY_INTEGER
+            ret = Int64(r.integer)
+        elseif r.rtype == REDIS_REPLY_ARRAY
+            n = Int64(r.elements)
+            results = Vector{Union{AbstractString,Nullable{AbstractString}}}(n)
+            replies = unsafe_wrap(Array, r.element, n)
+            for i in 1:n
+                ri = unsafe_load(replies[i])
+                results[i] = ri.str == C_NULL ? Nullable{AbstractString}() : unsafe_string(ri.str)
+            end
+            ret = results
+        end
+        free_reply_object(redisReply)
+        ret
+    end
+end
 
 "Pipelines a block of ordinary blocking calls."
 macro pipeline(expr::Expr)

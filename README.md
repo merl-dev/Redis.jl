@@ -22,7 +22,7 @@ _TODO_:
 * key-prefixing
 * ~~Pipelines~~, Transactions, Sentinels, and Pub/Sub need refactoring to pass tests
 * Add `start`, and `done` to `StreamScanners` -- not sure we need to implement an iterator interface since they aren't true iterators
-* Implement the libhiredis `RedisAsyncContext` and `redisAsyncCommand` interfaces
+* ~~Implement the libhiredis `RedisAsyncContext` and `redisAsyncCommand` interfaces~~ not implemented, unnecessary
 * Clusters remain without commands nor tests
 * Write "REDIS_CONVERT_REPLY" test suite (basically, duplicate current test suite)
 * create a clean benchmark suite
