@@ -109,7 +109,7 @@ function get_result(redisReply::Ptr{RedisReply})
     if r.rtype == REDIS_REPLY_ERROR
         error(unsafe_string(r.str))
     elseif r.rtype == REDIS_REPLY_STATUS && r.integer == 0
-        ret = "OK"
+        ret = unsafe_string(r.str)
     elseif r.rtype == REDIS_REPLY_STRING
         ret = unsafe_string(r.str)
     elseif r.rtype == REDIS_REPLY_INTEGER

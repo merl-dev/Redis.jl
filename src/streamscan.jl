@@ -101,7 +101,7 @@ function next!(SS::SetScanner; count=SS.count)
         SS.cursor = "0"
         Array{AbstractString}[]
     else
-        SS.cursor = sresult[1]
+        SS.cursor = string(sresult[1]) # returns cursor as Char when single digit
         collect(sresult[2])
     end
 end
@@ -121,7 +121,9 @@ type OrderedSetScanner <: StreamScanner
 end
 
 function next!(OS::OrderedSetScanner; count=OS.count)
-    OS.cursor, response = zscan(OS.conn, OS.key, parse(Int64, OS.cursor), "MATCH", OS.match, "COUNT", count)
+    sresult = zscan(OS.conn, OS.key, parse(Int64, OS.cursor), "MATCH", OS.match, "COUNT", count)
+    OS.cursor = string(sresult[1])
+    response = sresult[2]
     r = OrderedSet{Tuple{Float64, AbstractString}}()
     for i=1:2:length(response)
         push!(r, (parse(Float64, response[i+1]), response[i]))
@@ -144,8 +146,9 @@ type HashScanner <: StreamScanner
 end
 
 function next!(HS::HashScanner; count=HS.count)
-    HS.cursor, result = hscan(HS.conn, HS.key, parse(Int64, HS.cursor), "MATCH", HS.match, "COUNT", count)
-    result
+    sresult = hscan(HS.conn, HS.key, parse(Int64, HS.cursor), "MATCH", HS.match, "COUNT", count)
+    HS.cursor = string(sresult[1])
+    hscan(HS.conn, HS.key, parse(Int64, HS.cursor), "MATCH", HS.match, "COUNT", count)
 end
 
 function collect(SS::StreamScanner)
