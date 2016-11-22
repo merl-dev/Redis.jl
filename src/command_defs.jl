@@ -59,10 +59,10 @@ end
 @redisfunction "mset" Bool keyvalues
 @redisfunction "msetnx" Bool keyvalues
 @redisfunction "psetex" AbstractString key milliseconds value
-@redisfunction "set" Bool key value options...
+@redisfunction "set" AbstractString key value options...
 @redisfunction "setbit" Integer key offset value
 @redisfunction "setex" AbstractString key seconds value
-@redisfunction "setnx" Bool key value
+@redisfunction "setnx" AbstractString key value
 @redisfunction "setrange" Integer key offset value
 @redisfunction "strlen" Integer key
 
@@ -80,7 +80,7 @@ end
 @redisfunction "hkeys" Array{AbstractString, 1} key
 @redisfunction "hlen" Integer key
 @redisfunction "hmget" Array{Nullable{AbstractString}, 1} key field fields...
-@redisfunction "hmset" Bool key value
+@redisfunction "hmset" AbstractString key value
 @redisfunction "hset" Bool key field value
 @redisfunction "hsetnx" Bool key field value
 @redisfunction "hvals" Array{AbstractString, 1} key

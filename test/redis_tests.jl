@@ -3,11 +3,11 @@ conn = RedisConnection()
 flushall(conn)
 
 # some random key names
-testkey = "Redis_Test_"*randstring()
-testkey2 = "Redis_Test_"*randstring()
-testkey3 = "Redis_Test_"*randstring()
-testkey4 = "Redis_Test_"*randstring()
-testhash = "Redis_Test_"*randstring()
+    testkey = "Redis_Test_"*randstring()
+    testkey2 = "Redis_Test_"*randstring()
+    testkey3 = "Redis_Test_"*randstring()
+    testkey4 = "Redis_Test_"*randstring()
+    testhash = "Redis_Test_"*randstring()
 
 # some random strings
 s1 = randstring(); s2 = randstring(); s3 = randstring()
@@ -19,9 +19,9 @@ const REDIS_PERSISTENT_KEY =  -1
 const REDIS_EXPIRED_KEY =  -2
 
 @testset "Strings" begin
-    @test set(conn, testkey, s1)
+    @test set(conn, testkey, s1) == "OK"
     @test get(conn, testkey) == Nullable(s1)
-    @test exists(conn, testkey)
+    @test Redis.exists(conn, testkey)
     @test keys(conn, testkey) == Set([testkey])
     @test del(conn, testkey, "notakey", "notakey2") == 1  # only 1 of 3 key exists
 
@@ -35,13 +35,13 @@ const REDIS_EXPIRED_KEY =  -2
     @test get(randomkey(conn)) in keys(conn, "*")
     @test getrange(conn, testkey, 0, 3) == s1[1:4]
 
-    @test set(conn, testkey, 2)
+    set(conn, testkey, 2)
     @test incr(conn, testkey) == 3
     @test incrby(conn, testkey, 3) == 6
     @test incrbyfloat(conn, testkey, 1.5) == "7.5"
     @test mget(conn, testkey, testkey2, testkey3) == [Nullable("7.5"), Nullable(s2), Nullable(s3)]
     @test strlen(conn, testkey2) == length(s2)
-    @test rename(conn, testkey2, testkey4) == "OK"
+    @test Redis.rename(conn, testkey2, testkey4) == "OK"
     @test testkey4 in keys(conn,"*")
     del(conn, testkey, testkey2, testkey3, testkey4)
 
@@ -109,7 +109,7 @@ end
     # TODO: test of `migrate` requires 2 server instances in Travis
     set(conn, testkey, s1)
     @test move(conn, testkey, 1)
-    @test exists(conn, testkey) == false
+    @test Redis.exists(conn, testkey) == false
     @test Redis.select(conn, 1) == "OK"
     @test get(conn, testkey) == Nullable(s1)
     del(conn, testkey)
@@ -120,12 +120,12 @@ end
     set(conn, testkey, s1)
     expire(conn, testkey, 1)
     sleep(1)
-    @test exists(conn, testkey) == false
+    @test Redis.exists(conn, testkey) == false
 
     set(conn, testkey, s1)
     expireat(conn, testkey,  round(Int, Dates.datetime2unix(time(conn)+Dates.Second(1))))
     sleep(2) # only passes test with 2 second delay
-    @test exists(conn, testkey) == false
+    @test Redis.exists(conn, testkey) == false
 
     set(conn, testkey, s1)
     @test pexpire(conn, testkey, 1)
@@ -184,7 +184,7 @@ end
 end
 
 @testset "Hashes" begin
-    @test hmset(conn, testhash, Dict(1 => 2, "3" => 4, "5" => "6"))
+    @test hmset(conn, testhash, Dict(1 => 2, "3" => 4, "5" => "6")) == "OK"
     @test hexists(conn, testhash, 1) == true
     @test hexists(conn, testhash, "1") == true
     @test hget(conn, testhash, 1) == Nullable("2")
@@ -293,8 +293,8 @@ end
     @test zrevrangebyscore(conn, testkey, "(6", "(5") == OrderedSet{AbstractString}()
     @test zrevrank(conn, testkey, "e") == Nullable(5)
     @test isnull(zrevrank(conn, "ordered_set", "non_existent_member"))
-    @test zscore(conn, testkey, "e") == Nullable("5")
-    @test isnull(zscore(conn, "ordered_set", "non_existent_member"))
+    @test Redis.zscore(conn, testkey, "e") == Nullable("5")
+    @test isnull(Redis.zscore(conn, "ordered_set", "non_existent_member"))
     del(conn, testkey)
 
     vals2 = ["a", "b", "c", "d"]
