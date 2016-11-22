@@ -106,7 +106,6 @@ as appropriate the the reply type.
 """
 function get_result(redisReply::Ptr{RedisReply})
     r = unsafe_load(redisReply)
-    @show r
     if r.rtype == REDIS_REPLY_ERROR
         error(unsafe_string(r.str))
     elseif r.rtype == REDIS_REPLY_STATUS && r.integer == 0
@@ -117,13 +116,13 @@ function get_result(redisReply::Ptr{RedisReply})
         ret = Int64(r.integer)
     elseif r.rtype == REDIS_REPLY_ARRAY
         n = Int64(r.elements)
-        results = Vector{Union{AbstractString, Nullable{AbstractString}}}(n)
+        results = Vector{Any}()
         replies = unsafe_wrap(Array, r.element, n)
-        for i in 1:n
-            ri = unsafe_load(replies[i])
-            results[i] = ri.str == C_NULL ? Nullable{AbstractString}() : unsafe_string(ri.str)
+        for reply in replies
+            array_item = get_result(reply)
+            push!(results, array_item)
         end
-        ret = results
+        return results
     else
         # Redis 'nil'
         ret = Nullable{AbstractString}(nothing)

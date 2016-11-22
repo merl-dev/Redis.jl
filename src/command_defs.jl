@@ -27,7 +27,7 @@ end
 @redisfunction "rename" AbstractString key newkey
 @redisfunction "renamenx" Bool key newkey
 @redisfunction "restore" Bool key ttl serializedvalue
-@redisfunction "scan" Tuple{AbstractString, Set{AbstractString}} cursor::Integer options...
+@redisfunction "scan" Array{Any, 1} cursor::Integer options...
 @redisfunction "sort" Array{AbstractString, 1} key options...
 @redisfunction "ttl" Integer key
 function Base.keytype(conn::RedisConnection, key)
@@ -114,7 +114,6 @@ end
 @redisfunction "sinterstore" Integer destination key keys...
 @redisfunction "sismember" Bool key member
 
-# CAUTION:  this command will block until all keys have been returned
 @redisfunction "smembers" Set{AbstractString} key
 @redisfunction "smove" Bool source destination member
 @redisfunction "spop" Nullable{AbstractString} key
