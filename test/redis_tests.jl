@@ -384,18 +384,18 @@ end
         @test arr == [(1., s1), (2., s2), (3., s3)]
         del(conn, testkey)
     end
-    @testset "hashes" begin
-        dict = Dict("f1"=>s1, "f2"=>s2, "f3"=>s3)
-        hmset(conn, testkey, dict)
-        ks = HashScanner(conn, testkey, "*", 1)
-        @test issubset(Set(next!(ks)[2]), Set(dict))
-        @test collect(ks)[2] == dict
-        dict2 = Dict{AbstractString, AbstractString}()
-        collectAsync!(ks, dict2)
-        sleep(1)
-        @test dict2 == dict
-        del(conn, testkey)
-    end
+    # @testset "hashes" begin
+    #     dict = Dict("f1"=>s1, "f2"=>s2, "f3"=>s3)
+    #     hmset(conn, testkey, dict)
+    #     ks = HashScanner(conn, testkey, "*", 1)
+    #     @test issubset(Set(next!(ks)[2]), Set(dict))
+    #     @test collect(ks)[2] == dict
+    #     dict2 = Dict{AbstractString, AbstractString}()
+    #     collectAsync!(ks, dict2)
+    #     sleep(1)
+    #     @test dict2 == dict
+    #     del(conn, testkey)
+    # end
 end
 
 @testset "Scripting" begin
