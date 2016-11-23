@@ -1,3 +1,53 @@
+# #TODO: refac, document and test
+
+immutable SubscriptionConnection <: SubscribableConnection
+    host::AbstractString
+    port::Integer
+    password::AbstractString
+    db::Integer
+    callbacks::Dict{AbstractString, Function}
+    pcallbacks::Dict{AbstractString, Function}
+    context::Ptr{RedisContext}
+end
+
+
+# function SubscriptionConnection(parent::SubscribableConnection)
+#     context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), parent.host, parent.port)
+#     if !_isConnected(context)
+#         throw(ConnectionException("Failed to create pipeline"))
+#     else
+#         subscription_connection = SubscriptionConnection(parent.host,
+#             parent.port, parent.password, parent.db, Dict{AbstractString, Function}(),
+#             Dict{AbstractString, Function}(), context)
+#         on_connect(subscription_connection)
+#     end
+# end
+#
+# nullcb(err) = nothing
+# function open_subscription(conn::RedisConnection, err_callback=nullcb)
+#     s = SubscriptionConnection(conn)
+#     @async subscription_loop(s, err_callback)
+#     s
+# end
+#
+# function subscription_loop(conn::SubscriptionConnection, err_callback::Function)
+#     while isConnected(conn)
+#         try
+#             l = getline(conn.socket)
+#             reply = parseline(l, conn.socket)
+#             message = SubscriptionMessage(reply)
+#             if message.message_type == SubscriptionMessageType.Message
+#                 conn.callbacks[message.channel](message.message)
+#             elseif message.message_type == SubscriptionMessageType.Pmessage
+#                 conn.pcallbacks[message.channel](message.message)
+#             end
+#         catch err
+#             err_callback(err)
+#         end
+#     end
+# end
+#
+
 function _subscribe(conn::SubscriptionConnection, channels::Array)
     do_command_wr(conn, unshift!(channels, "subscribe"))
 end
