@@ -9,7 +9,7 @@ macro checked_lib(libname, path)
 end
 
 # Load dependencies
-@checked_lib libhiredis "/usr/lib/x86_64-linux-gnu/libhiredis.so"
+@checked_lib libhiredis "/usr/bin/../lib/x86_64-linux-gnu/libhiredis.so"
 
 # Load-hooks
 
