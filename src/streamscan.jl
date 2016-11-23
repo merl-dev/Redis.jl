@@ -148,7 +148,8 @@ end
 function next!(HS::HashScanner; count=HS.count)
     sresult = hscan(HS.conn, HS.key, parse(Int64, HS.cursor), "MATCH", HS.match, "COUNT", count)
     HS.cursor = string(sresult[1])
-    hscan(HS.conn, HS.key, parse(Int64, HS.cursor), "MATCH", HS.match, "COUNT", count)
+    sresult[2]
+
 end
 
 function collect(SS::StreamScanner)

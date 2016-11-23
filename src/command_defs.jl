@@ -231,14 +231,14 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "script_load" AbstractString script
 
 # Server commands
-@redisfunction "bgrewriteaof" Bool
+@redisfunction "bgrewriteaof" AbstractString
 @redisfunction "bgsave" AbstractString
 @redisfunction "client_getname" AbstractString
 @redisfunction "client_list" AbstractString
 @redisfunction "client_pause" Bool timeout
 @redisfunction "client_setname" Bool name
 @redisfunction "cluster_slots" Array
-@redisfunction "command" Array
+@redisfunction "command" Array{Any,1}
 @redisfunction "command_count" Integer
 @redisfunction "command_info" Array command commands...
 @redisfunction "config_get" Array parameter
@@ -249,12 +249,17 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "debug_object" AbstractString key
 @redisfunction "debug_segfault" Any
 @redisfunction "flushall" AbstractString
-@redisfunction "flushdb" AbstractString db
+@redisfunction "flushdb" AbstractString
+
+# TODO: write methods formatting response
 @redisfunction "info" AbstractString
 @redisfunction "info" AbstractString section
+
+# TODO convert unix time stamp to DateTime
 @redisfunction "lastsave" Integer
-@redisfunction "role" Array
-@redisfunction "save" Bool
+
+@redisfunction "role" Array{Any,1}
+@redisfunction "save" AbstractString
 @redisfunction "slaveof" AbstractString host port
 @redisfunction "_time" Array{AbstractString, 1}
 

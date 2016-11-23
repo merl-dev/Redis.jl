@@ -330,22 +330,22 @@ end
         @test issubset(response[2], Set([testkey, testkey2, testkey3]))
         del(conn, testkey, testkey2, testkey3)
     end
-    # @testset "sets" begin
-    #     sadd(conn, testkey, Set([s1, s2, s3]))
-    #     @test sscan(conn, testkey, 0) == ("0", Set([s1, s2, s3]))
-    #     del(conn, testkey)
-    # end
-    # @testset "ordered sets" begin
-    #     zadd(conn, testkey, (1, s1), (2, s2), (3, s3))
-    #     @test zscan(conn, testkey, 0) == ("0", OrderedSet([s1, "1", s2, "2", s3, "3"]))
-    #     del(conn, testkey)
-    # end
+    @testset "sets" begin
+        sadd(conn, testkey, Set([s1, s2, s3]))
+        @test sscan(conn, testkey, 0) == ('0', Set([s1, s2, s3]))
+        del(conn, testkey)
+    end
+    @testset "ordered sets" begin
+        zadd(conn, testkey, (1, s1), (2, s2), (3, s3))
+        @test zscan(conn, testkey, 0) == ('0', OrderedSet([s1, "1", s2, "2", s3, "3"]))
+        del(conn, testkey)
+    end
 
-    # @testset "hashes" begin
-    #     hmset(conn, testkey, Dict("f1"=>s1, "f2"=>s2, "f3"=>s3))
-    #     @test hscan(conn, testkey, 0) == ("0", Dict{AbstractString,AbstractString}("f1"=>s1,"f2"=>s2,"f3"=>s3))
-    #     del(conn, testkey)
-    # end
+    @testset "hashes" begin
+        hmset(conn, testkey, Dict("f1"=>s1, "f2"=>s2, "f3"=>s3))
+        @test hscan(conn, testkey, 0) == ('0', Dict{AbstractString,AbstractString}("f1"=>s1,"f2"=>s2,"f3"=>s3))
+        del(conn, testkey)
+    end
 end
 
 @testset "StreamScan" begin
@@ -384,18 +384,18 @@ end
         @test arr == [(1., s1), (2., s2), (3., s3)]
         del(conn, testkey)
     end
-    # @testset "hashes" begin
-    #     dict = Dict("f1"=>s1, "f2"=>s2, "f3"=>s3)
-    #     hmset(conn, testkey, dict)
-    #     ks = HashScanner(conn, testkey, "*", 1)
-    #     @test issubset(Set(next!(ks)[2]), Set(dict))
-    #     @test collect(ks)[2] == dict
-    #     dict2 = Dict{AbstractString, AbstractString}()
-    #     collectAsync!(ks, dict2)
-    #     sleep(1)
-    #     @test dict2 == dict
-    #     del(conn, testkey)
-    # end
+    @testset "hashes" begin
+        dict = Dict("f1"=>s1, "f2"=>s2, "f3"=>s3)
+        hmset(conn, testkey, dict)
+        ks = HashScanner(conn, testkey, "*", 1)
+        @test issubset(Set(next!(ks)), Set(dict))
+        @test collect(ks) == dict
+        dict2 = Dict{AbstractString, AbstractString}()
+        collectAsync!(ks, dict2)
+        sleep(1)
+        @test dict2 == dict
+        del(conn, testkey)
+    end
 end
 
 @testset "Scripting" begin
