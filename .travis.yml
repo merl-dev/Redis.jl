@@ -5,6 +5,9 @@ julia:
   - 0.5
 notifications:
   email: false
+before_install:
+  - sudo apt-get install libhiredis-dev -y
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 script:
   - julia -e 'Pkg.init(); Pkg.clone(pwd()); Pkg.add("BinDeps"); Pkg.add("DataStructures"); Pkg.build("Redis"); Pkg.test("Redis", coverage=true)'
 after_success:
