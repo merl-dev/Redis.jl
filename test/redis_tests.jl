@@ -318,7 +318,12 @@ end
 
 @testset "HyperLogLog" begin
     @test pfadd(conn, "hll", "a", "b", "c", "d", "e", "f", "g") == true
-
+    @test pfcount(conn, "hll") == 7
+    pfadd(conn, "hll1", "foo", "bar", "zap", "a")
+    pfadd(conn, "hll2", "a", "b", "c", "foo")
+    @test pfmerge(conn, "hll3", "hll1", "hll2") == "OK"
+    @test pfcount(conn, "hll3") == 6
+    del(conn, "hll", "hll1", "hll2", "hll3")
 end
 
 @testset "Scan" begin
@@ -478,11 +483,12 @@ end
 
 @testset "Sundry" begin
     @test bgrewriteaof(conn) == "Background append only file rewriting started"
+    sleep(3)
     @test bgsave(conn) == "Background saving started"
     @test typeof(command(conn)) == Array{Any, 1}
     @test typeof(dbsize(conn)) == Int64
     @test Redis.echo(conn, "astringtoecho") == "astringtoecho"
-    @test Redis.ping(conn) = "PONG"
+    @test Redis.ping(conn) == "PONG"
     @test flushall(conn) == "OK"
     @test flushdb(conn) == "OK"
     redisinfo = split(Redis.info(conn), "\r\n")
@@ -495,7 +501,9 @@ end
     @test role(conn)  == ["master", 0, Any[]]
     @test Redis.save(conn) == "OK"
     @test Redis.slaveof(conn, "localhost", 6379) == "OK"
+    @test slaveof(conn, "no", "one") == "OK"
     @test typeof(Redis.time(conn)) == DateTime 
+    
 end
 
 

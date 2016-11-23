@@ -1,7 +1,6 @@
 ######## Reply Type Conversions #########
 
 convert_response(::Type{Float64}, response) = float(response)::Float64
-#convert_response(::Type{Bool}, response::AbstractString) = response == "OK" || response == "QUEUED" ? true : false
 convert_response(::Type{Bool}, response::Integer) = response == 1 ? true : false
 convert_response(::Type{Set{AbstractString}}, response) = Set{AbstractString}(response)
 convert_response(::Type{OrderedSet{AbstractString}}, response) = OrderedSet{AbstractString}(response)

@@ -197,7 +197,7 @@ end
 # HyperLogLog commands
 @redisfunction "pfadd" Bool key element elements...
 @redisfunction "pfcount" Integer key keys...
-@redisfunction "pfmerge" Bool destkey sourcekey sourcekeys...
+@redisfunction "pfmerge" AbstractString destkey sourcekey sourcekeys...
 
 # Connection commands
 @redisfunction "auth" AbstractString password
@@ -237,11 +237,11 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "client_list" AbstractString
 @redisfunction "client_pause" Bool timeout
 @redisfunction "client_setname" Bool name
-@redisfunction "cluster_slots" Array
+@redisfunction "cluster_slots" Array{Any, 1}
 @redisfunction "command" Array{Any,1}
 @redisfunction "command_count" Integer
-@redisfunction "command_info" Array command commands...
-@redisfunction "config_get" Array parameter
+@redisfunction "command_info" Array{Any, 1} command commands...
+@redisfunction "config_get" Array{Any, 1} parameter
 @redisfunction "config_resetstat" Bool
 @redisfunction "config_rewrite" Bool
 @redisfunction "config_set" Bool parameter value

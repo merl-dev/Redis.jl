@@ -93,6 +93,7 @@ else
         end
     end
 end
+
 "Issues a blocking command to hiredis, accepting string command"
 function do_command(conn::RedisConnectionBase, command::AbstractString)
     if !isConnected(conn)
