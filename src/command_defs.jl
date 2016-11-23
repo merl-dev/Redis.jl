@@ -203,7 +203,7 @@ end
 @redisfunction "auth" AbstractString password
 @redisfunction "echo" AbstractString message
 @redisfunction "ping" AbstractString
-@redisfunction "quit" Bool
+@redisfunction "quit" AbstractString
 @redisfunction "select" AbstractString index
 
 # Transaction commands

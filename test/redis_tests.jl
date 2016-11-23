@@ -316,6 +316,11 @@ end
     del(conn, testkey, testkey2, testkey3)
 end
 
+@testset "HyperLogLog" begin
+    @test pfadd(conn, "hll", "a", "b", "c", "d", "e", "f", "g") == true
+
+end
+
 @testset "Scan" begin
     @testset "keys" begin
         set(conn, testkey, s1)
@@ -470,5 +475,28 @@ end
 #     # following command prints ("Invalid response received: ")
 #     disconnect(subs)
 # end
+
+@testset "Sundry" begin
+    @test bgrewriteaof(conn) == "Background append only file rewriting started"
+    @test bgsave(conn) == "Background saving started"
+    @test typeof(command(conn)) == Array{Any, 1}
+    @test typeof(dbsize(conn)) == Int64
+    @test Redis.echo(conn, "astringtoecho") == "astringtoecho"
+    @test Redis.ping(conn) = "PONG"
+    @test flushall(conn) == "OK"
+    @test flushdb(conn) == "OK"
+    redisinfo = split(Redis.info(conn), "\r\n")
+    # select a few items that should appear in result
+    @test issubset(["# Server", "# CPU", "# Cluster", "# Keyspace"], redisinfo)
+    redisinfo = split(Redis.info(conn, "memory"), "\r\n")
+    # select a few items that should appear in result
+    @test issubset(["# Memory"], redisinfo)
+    @test typeof(Dates.unix2datetime(lastsave(conn))) == DateTime
+    @test role(conn)  == ["master", 0, Any[]]
+    @test Redis.save(conn) == "OK"
+    @test Redis.slaveof(conn, "localhost", 6379) == "OK"
+    @test typeof(Redis.time(conn)) == DateTime 
+end
+
 
 disconnect(conn)
