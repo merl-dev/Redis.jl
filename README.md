@@ -1,7 +1,7 @@
 # Redis.jl
 
 
-[![Build Status](https://travis-ci.org/merl-dev/Redis.jl.svg?branch=master)](https://travis-ci.org/merl-dev/Redis.jl) [![Coverage Status](https://coveralls.io/repos/github/merl-dev/Redis.jl/badge.svg?branch=master)](https://coveralls.io/github/merl-dev/Redis.jl?branch=master)  [![DataFrames](http://pkg.julialang.org/badges/Redis_0.4.svg)](http://pkg.julialang.org/?pkg=Redis&ver=0.4) [![DataFrames](http://pkg.julialang.org/badges/Redis_0.5.svg)](http://pkg.julialang.org/?pkg=Redis&ver=0.5)
+[![Build Status](https://travis-ci.org/merl-dev/Redis.jl.svg?branch=hiredis)](https://travis-ci.org/merl-dev/Redis.jl) [![Coverage Status](https://coveralls.io/repos/github/merl-dev/Redis.jl/badge.svg?branch=master)](https://coveralls.io/github/merl-dev/Redis.jl?branch=hiredis) [![DataFrames](http://pkg.julialang.org/badges/Redis_0.5.svg)](http://pkg.julialang.org/?pkg=Redis&ver=0.5)
 
 
 
@@ -14,11 +14,8 @@ Merges a debugged version of HiRedis.jl, based on the C-language hiredis interfa
 In order to maximize performance, send string commands using `do_command`:  for example, instead of `set(conn, "akey", "avalue")`,
 use `do_command(conn, "set akey avalue")` in order to bypass command parsing.  In addition, for use cases where Redis server responses are not required immediately, use pipeline commands: `pipeline_command(conn, "set akey value")`. In certain scenarios further performance enhancements can be attained by setting the Julia `ENV` key "REDIS_CONVERT_REPLY" to `false` before `using Redis`.  This will bypass all response conversions and return the original Redis server response.
 
-Methods have been moved around to new files, awaiting finalization.  This will likely revert to something closer to original when the refactor and optimizations have been completed.
-
 
 _TODO_:
-* ALOT
 * key-prefixing
 * ~~Pipelines~~, Transactions, Sentinels, and Pub/Sub need refactoring to pass tests
 * Add `start`, and `done` to `StreamScanners` -- not sure we need to implement an iterator interface since they aren't true iterators

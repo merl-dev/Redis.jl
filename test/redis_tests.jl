@@ -468,15 +468,17 @@ end
 
 # @testset "Pub/Sub" begin
 #     g(y) = print(y)
-#     subs = open_subscription(conn, g)
 #     x = Any[]
-#     f(y) = push!(x, y)
+#     f(y) = begin push!(x, y); println("channel func f: ", y) end
+#     h(y) = begin push!(x, y); println("channel func h: ", y) end
+#     subs = SubscriptionConnection()
 #     subscribe(subs, "channel", f)
-#     subscribe(subs, "duplicate", f)
+#     subscribe(subs, "duplicate", h)
+#     startSubscriptionLoop(subs, println)
 #     @test publish(conn, "channel", "hello, world!") == 1
 #     sleep(2)
 #     @test x == ["hello, world!"]
-#
+
 #     # following command prints ("Invalid response received: ")
 #     disconnect(subs)
 # end

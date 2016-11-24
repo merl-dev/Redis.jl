@@ -267,7 +267,7 @@ function shutdown(conn::RedisConnectionBase; save=true)
     if !isConnected(conn)
         conn = restart(conn)
     end
-    reply = ccall((:redisvCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
+    reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
         "shutdown " * ifelse(save, "save", "nosave"))
 end
 

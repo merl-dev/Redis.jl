@@ -155,4 +155,3 @@ function read_pipeline(conn::PipelineConnection)
     conn.count = 0
     result
 end
-

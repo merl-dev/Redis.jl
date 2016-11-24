@@ -30,7 +30,7 @@ if !haskey(ENV, "REDIS_CONVERT_REPLY") || ENV["REDIS_CONVERT_REPLY"] == "true"
 
         if length(args) > 0
             return quote
-                function $(func_name)(conn::RedisConnection, $(args...))
+                function $(func_name)(conn::SubscribableConnection, $(args...))
                     response = do_command(conn, flatten_command($(command...), $(args...)))
                     convert_response($ret_type, response)
                 end
@@ -44,7 +44,7 @@ if !haskey(ENV, "REDIS_CONVERT_REPLY") || ENV["REDIS_CONVERT_REPLY"] == "true"
             end
         else
             return quote
-                function $(func_name)(conn::RedisConnection)
+                function $(func_name)(conn::SubscribableConnection)
                     response = do_command(conn, flatten_command($(command...)))
                     convert_response($ret_type, response)
                 end
@@ -99,7 +99,7 @@ function do_command(conn::RedisConnectionBase, command::AbstractString)
     if !isConnected(conn)
         conn = restart(conn)
     end
-    reply = ccall((:redisvCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, command)
+    reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, command)
     get_result(reply)
 end
 

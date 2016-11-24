@@ -1,6 +1,21 @@
-# #TODO: refac, document and test
+# @testset "Pub/Sub" begin
+#       g(y) = print(y)
+#       x = Any[]
+#       f(y) = begin push!(x, y); println("channel func f: ", y) end
+#       h(y) = begin push!(x, y); println("channel func h: ", y) end
+#       subs = SubscriptionConnection()
+#       subscribe(subs, "channel", f)
+#       subscribe(subs, "duplicate", f)
+#       
+#       @test publish(conn, "channel", "hello, world!") == 1
+#       sleep(2)
+#       @test x == ["hello, world!"]
+#
+#     # following command prints ("Invalid response received: ")
+#     disconnect(subs)
+# end
 
-immutable SubscriptionConnection <: SubscribableConnection
+type SubscriptionConnection <: SubscribableConnection
     host::AbstractString
     port::Integer
     password::AbstractString
@@ -8,54 +23,35 @@ immutable SubscriptionConnection <: SubscribableConnection
     callbacks::Dict{AbstractString, Function}
     pcallbacks::Dict{AbstractString, Function}
     context::Ptr{RedisContext}
+    count::Integer
 end
 
-
-# function SubscriptionConnection(parent::SubscribableConnection)
-#     context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), parent.host, parent.port)
-#     if !_isConnected(context)
-#         throw(ConnectionException("Failed to create pipeline"))
-#     else
-#         subscription_connection = SubscriptionConnection(parent.host,
-#             parent.port, parent.password, parent.db, Dict{AbstractString, Function}(),
-#             Dict{AbstractString, Function}(), context)
-#         on_connect(subscription_connection)
-#     end
-# end
-#
-# nullcb(err) = nothing
-# function open_subscription(conn::RedisConnection, err_callback=nullcb)
-#     s = SubscriptionConnection(conn)
-#     @async subscription_loop(s, err_callback)
-#     s
-# end
-#
-# function subscription_loop(conn::SubscriptionConnection, err_callback::Function)
-#     while isConnected(conn)
-#         try
-#             l = getline(conn.socket)
-#             reply = parseline(l, conn.socket)
-#             message = SubscriptionMessage(reply)
-#             if message.message_type == SubscriptionMessageType.Message
-#                 conn.callbacks[message.channel](message.message)
-#             elseif message.message_type == SubscriptionMessageType.Pmessage
-#                 conn.pcallbacks[message.channel](message.message)
-#             end
-#         catch err
-#             err_callback(err)
-#         end
-#     end
-# end
-#
+function SubscriptionConnection(;host="127.0.0.1", port=6379, password="", db=0)
+    context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), host, port)
+    if !_isConnected(context)
+        throw(ConnectionException("Failed to create subscription connection"))
+    else
+        subscription_connection = SubscriptionConnection(host,
+            port, password, db, Dict{AbstractString, Function}(),
+            Dict{AbstractString, Function}(), context, 0)
+        on_connect(subscription_connection)
+    end
+end
 
 function _subscribe(conn::SubscriptionConnection, channels::Array)
-    do_command_wr(conn, unshift!(channels, "subscribe"))
+    msgs = []
+    for channel in channels
+        reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, "subscribe $channel")
+        push!(msgs, get_result(reply))
+    end
+    msgs
 end
 
 function subscribe(conn::SubscriptionConnection, channel::AbstractString, callback::Function)
     conn.callbacks[channel] = callback
     _subscribe(conn, [channel])
 end
+
 
 function subscribe(conn::SubscriptionConnection, subs::Dict{AbstractString, Function})
     for (channel, callback) in subs
@@ -64,35 +60,44 @@ function subscribe(conn::SubscriptionConnection, subs::Dict{AbstractString, Func
     _subscribe(conn, collect(keys(subs)))
 end
 
+nullsccb(err) = println(err)
+
+startSubscriptionLoop(conn::SubscriptionConnection, err_callback::Function) = 
+   _loop(conn, err_callback)
+
+startSubscriptionLoopAsync(conn::SubscriptionConnection, err_callback::Function) = 
+   @async _loop(conn, err_callback) 
+
+function _loop(conn::SubscriptionConnection, err_callback::Function)
+    while isConnected(conn)
+        try
+            reply = get_reply(conn)
+            message = SubscriptionMessage(reply)
+            if message.message_type == SubscriptionMessageType.Message
+                conn.callbacks[message.channel](message.message)
+            elseif message.message_type == SubscriptionMessageType.Pmessage
+                conn.pcallbacks[message.channel](message.message)
+            end
+        catch err
+            err_callback(err)
+        end
+    end 
+end
+
+export startSubscrip@threationLoop, startSubscriptionLoopAsync 
+
 function unsubscribe(conn::SubscriptionConnection, channels...)
     for channel in channels
         delete!(conn.callbacks, channel)
+        reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, "unsubscribe $channel")
+        #get_result(reply)
     end
-    execute_command(conn, unshift!(channels, "unsubscribe"))
 end
 
-function _psubscribe(conn::SubscriptionConnection, patterns::Array)
-    do_command_wr(conn, unshift!(patterns, "psubscribe"))
-end
-
-function psubscribe(conn::SubscriptionConnection, pattern::AbstractString, callback::Function)
-    conn.callbacks[pattern] = callback
-    _psubscribe(conn, [pattern])
-end
-
-function psubscribe(conn::SubscriptionConnection, subs::Dict{AbstractString, Function})
-    for (pattern, callback) in subs
-        conn.callbacks[pattern] = callback
-    end
-    _psubscribe(conn, collect(values(subs)))
-end
-
-function punsubscribe(conn::SubscriptionConnection, patterns...)
-    for pattern in patterns
-        delete!(conn.pcallbacks, pattern)
-    end
-    execute_command(conn, unshift!(patterns, "punsubscribe"))
-end
+###########################
+# TODO:  pattern pub sub
+#
+###########################
 
 baremodule SubscriptionMessageType
     const Message = 0
