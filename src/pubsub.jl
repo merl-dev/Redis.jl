@@ -84,7 +84,7 @@ function _loop(conn::SubscriptionConnection, err_callback::Function)
     end 
 end
 
-export startSubscrip@threationLoop, startSubscriptionLoopAsync 
+export startSubscriptionLoop, startSubscriptionLoopAsync 
 
 function unsubscribe(conn::SubscriptionConnection, channels...)
     for channel in channels
