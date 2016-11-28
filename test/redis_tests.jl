@@ -478,7 +478,8 @@ function pubSubTest(conn)
 end   
 
 @testset "Pub/Sub" begin
-    subs, x = pubSubTest(conn)
+    conn2 = RedisConnection()
+    subs, x = pubSubTest(conn2)
     clients = client_list(subs.parent)
     @test length(clients) == 2
     # one client should have 2 subscriptions  
@@ -491,7 +492,8 @@ end
     @test x == ["hello, world!"]
     unsubscribe(subs, "channel")
     unsubscribe(subs, "duplicate")
-    #disconnect(subs)
+    disconnect(subs)
+    disconnect(conn2)
 end
 
 # some tests removed, were causing travis failure
