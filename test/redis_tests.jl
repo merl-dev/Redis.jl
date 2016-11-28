@@ -480,8 +480,7 @@ end
 @testset "Pub/Sub" begin
     subs, x = pubSubTest(conn)
     clients = client_list(subs.parent)
-    # one parent + two channels:
-    @test length(clients) == 3
+    @test length(clients) == 2
     # one client should have 2 subscriptions  
     @test (clients[1]["sub"] == "2" || clients[2]["sub"] == "2" || clients[3]["sub"] == "2")
     tsk = startSubscriptionLoopAsync(subs, println)
