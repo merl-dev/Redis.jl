@@ -466,22 +466,34 @@ end
     disconnect(pipe)
 end
 
-# @testset "Pub/Sub" begin
-#     g(y) = print(y)
-#     x = Any[]
-#     f(y) = begin push!(x, y); println("channel func f: ", y) end
-#     h(y) = begin push!(x, y); println("channel func h: ", y) end
-#     subs = SubscriptionConnection()
-#     subscribe(subs, "channel", f)
-#     subscribe(subs, "duplicate", h)
-#     startSubscriptionLoop(subs, println)
-#     @test publish(conn, "channel", "hello, world!") == 1
-#     sleep(2)
-#     @test x == ["hello, world!"]
+function pubSubTest(conn)
+      g(y) = print(y)
+      x = String[]
+      f(y) = begin push!(x, y); println("channel func f: ", y) end
+      h(y) = begin push!(x, y); println("channel func h: ", y) end
+      subs = SubscriptionConnection(parent=conn)
+      subscribe(subs, "channel", f)
+      subscribe(subs, "duplicate", h)
+      subs, x
+end   
 
-#     # following command prints ("Invalid response received: ")
-#     disconnect(subs)
-# end
+@testset "Pub/Sub" begin
+    subs, x = pubSubTest(conn)
+    clients = client_list(subs.parent)
+    # one parent + two channels:
+    @test length(clients) == 3
+    # one client should have 2 subscriptions  
+    @test (clients[1]["sub"] == "2" || clients[2]["sub"] == "2" || clients[3]["sub"] == "2")
+    tsk = startSubscriptionLoopAsync(subs, println)
+    @test typeof(tsk) == Task
+    @test tsk.state == :queued || tsk.state == :runnable
+    @test publish(subs.parent, "channel", "hello, world!") == 1
+    sleep(1)
+    @test x == ["hello, world!"]
+    unsubscribe(subs, "channel")
+    unsubscribe(subs, "duplicate")
+    disconnect(subs)
+end
 
 # some tests removed, were causing travis failure
 @testset "Sundry" begin

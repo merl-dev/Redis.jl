@@ -22,23 +22,28 @@ The `RedisContext` has an `err` field set to zero upon success, and `errstr` con
 the error upon failure.
 
 Once successfully connected, an attempt is made to authorize and select the given db.
-
-TODO: parse error string, Async version
 """
 function RedisConnection(; host="127.0.0.1", port=6379, password="", db=0)
     context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), host, port)
-    if !_isConnected(context)
-        throw(ConnectionException("Failed to connect to Redis server"))
+    connectState = _isConnected(context) 
+    if connectState.reply != REDIS_OK 
+        throw(ConnectionException(string("Failed to connect to Redis server: ", connectState.msg)))
     else
         connection = RedisConnection(host, port, password, db, context)
         on_connect(connection)
     end
 end
 
+immutable ConnectReply
+    reply::Int
+    msg::AbstractString
+end
+
 # used internally
 function _isConnected(context::Ptr{RedisContext})
     uc = unsafe_load(context)
-    uc.err == 0 ? true : false
+    #uc.err == REDIS_OK ? ConnectReply(uc.err, "") : ConnectReply(uc.err, unsafe_string(uc.errstr))
+    uc.err == REDIS_OK ? ConnectReply(uc.err, "") : ConnectReply(uc.err, "unknown connect failure, often host:port incorrect or redis-server not started")
 end
 
 """
@@ -49,7 +54,9 @@ Test connection status.
 # Arguments
 * `conn` : a `RedisConnection`
 """
-isConnected(conn::RedisConnectionBase) = _isConnected(conn.context)
+function isConnected(conn::RedisConnectionBase) 
+    _isConnected(conn.context)
+end
 
 function on_connect(conn::RedisConnectionBase)
     conn.password != "" && auth(conn, conn.password)
@@ -103,8 +110,9 @@ see `RedisConnection` for details
 """
 function TransactionConnection(parent::RedisConnection)
     context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), parent.host, parent.port)
-    if !isConnected(context)
-        throw(ConnectionException("Failed to create transaction"))
+    connectState = _isConnected(context) 
+    if connectState.reply != REDIS_OK
+        throw(ConnectionException(string("Failed to create transaction: ", connectState.msg)))
     else
         transaction_connection = TransactionConnection(parent.host, parent.port, parent.password, parent.db, context)
         on_connect(transaction_connection)
@@ -136,8 +144,9 @@ see `RedisConnection` for details
 """
 function PipelineConnection(parent::RedisConnection)
     context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), parent.host, parent.port)
-    if !_isConnected(context)
-        throw(ConnectionException("Failed to create pipeline"))
+    connectState = _isConnected(context)
+    if connectState.reply != REDIS_OK
+        throw(ConnectionException(string("Failed to create pipeline", connectState.msg)))
     else
         pipeline_connection = PipelineConnection(parent.host, parent.port, parent.password, parent.db, context, 0)
         on_connect(pipeline_connection)

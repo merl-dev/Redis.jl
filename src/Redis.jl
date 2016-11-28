@@ -1,4 +1,4 @@
-__precompile__()
+#__precompile__()
 module Redis
 
 if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
@@ -56,7 +56,7 @@ export discard, exec, multi, unwatch, watch
 # Scripting commands
 export evalscript, evalsha, script_exists, script_flush, script_kill, script_load
 # PubSub commands
-export subscribe, publish, psubscribe, punsubscribe, unsubscribe
+export subscribe, publish, psubscribe, punsubscribe, unsubscribe, pubsub
 # Server commands (`info` command not exported due to conflicts with other packages)
 export bgrewriteaof, bgsave, client_list, client_pause, client_setname, cluster_slots,
        command, command_count, command_info, config_get, config_resetstat, config_rewrite,
@@ -70,6 +70,9 @@ export StreamScanner, KeyScanner, SetScanner, OrderedSetScanner, HashScanner, ne
 # Redis constants
 # TODO: add more, consider a separate constants.jl
 export REDIS_PERSISTENT_KEY, REDIS_EXPIRED_KEY
+
+"define a default callback that does nothing"
+nullcb(args) = nothing
 
 include("libhiredis.jl")
 include("exceptions.jl")

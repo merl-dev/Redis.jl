@@ -172,8 +172,7 @@ function collect(SS::StreamScanner)
     collect(result)
 end
 
-"define a default callback that does nothing"
-nullcb(args) = nothing
+
 
 # Restricted to KeyScanner, SetScanner types
 function collectAsync!(SS::StreamScanner, arr::Array{AbstractString, 1}; cb::Function=nullcb)

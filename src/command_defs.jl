@@ -206,6 +206,23 @@ end
 @redisfunction "quit" AbstractString
 @redisfunction "select" AbstractString index
 
+function client_list(conn::RedisConnectionBase)
+    clients = split(Redis.do_command(conn, "client list"), "\n")
+    results = Array{Dict{AbstractString, Any},1}()
+    for client in clients
+        if length(client) > 0
+            resulti = Dict{AbstractString, Any}()
+            splits = split(client, " ")
+            for asplit in splits
+                kv = split(asplit, "=")
+                resulti[kv[1]] = kv[2]
+            end
+            push!(results, resulti)
+        end
+    end
+    results
+end
+
 # Transaction commands
 @redisfunction "discard" Bool
 @redisfunction "exec" Array{Bool} # only one element ever in this array?
@@ -234,7 +251,6 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "bgrewriteaof" AbstractString
 @redisfunction "bgsave" AbstractString
 @redisfunction "client_getname" AbstractString
-@redisfunction "client_list" AbstractString
 @redisfunction "client_pause" Bool timeout
 @redisfunction "client_setname" Bool name
 @redisfunction "cluster_slots" Array{Any, 1}
@@ -264,7 +280,7 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "_time" Array{AbstractString, 1}
 
 function shutdown(conn::RedisConnectionBase; save=true)
-    if !isConnected(conn)
+    if isConnected(conn).reply != REDIS_OK
         conn = restart(conn)
     end
     reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
@@ -281,6 +297,7 @@ end
 
 # Custom commands (PubSub/Transaction)
 @redisfunction "publish" Integer channel message
+@redisfunction "pubsub" Array{Any, 1} subcommand
 
 #Need a specialized version of execute to keep the connection in the transaction state
 function exec(conn::TransactionConnection)

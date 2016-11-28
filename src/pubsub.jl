@@ -1,21 +1,10 @@
-# @testset "Pub/Sub" begin
-#       g(y) = print(y)
-#       x = Any[]
-#       f(y) = begin push!(x, y); println("channel func f: ", y) end
-#       h(y) = begin push!(x, y); println("channel func h: ", y) end
-#       subs = SubscriptionConnection()
-#       subscribe(subs, "channel", f)
-#       subscribe(subs, "duplicate", f)
-#       
-#       @test publish(conn, "channel", "hello, world!") == 1
-#       sleep(2)
-#       @test x == ["hello, world!"]
+###########################
+# TODO:  pattern pub sub
 #
-#     # following command prints ("Invalid response received: ")
-#     disconnect(subs)
-# end
+###########################
 
 type SubscriptionConnection <: SubscribableConnection
+    parent::SubscribableConnection
     host::AbstractString
     port::Integer
     password::AbstractString
@@ -23,17 +12,18 @@ type SubscriptionConnection <: SubscribableConnection
     callbacks::Dict{AbstractString, Function}
     pcallbacks::Dict{AbstractString, Function}
     context::Ptr{RedisContext}
-    count::Integer
+    Q::Collections.PriorityQueue
 end
 
-function SubscriptionConnection(;host="127.0.0.1", port=6379, password="", db=0)
-    context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), host, port)
-    if !_isConnected(context)
-        throw(ConnectionException("Failed to create subscription connection"))
+function SubscriptionConnection(;parent::SubscribableConnection=RedisConnection())
+    context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), parent.host, parent.port)
+    connectState = _isConnected(context)
+    if connectState.reply != REDIS_OK
+        throw(ConnectionException(string("Failed to create subscription connection", connectState.msg)))
     else
-        subscription_connection = SubscriptionConnection(host,
-            port, password, db, Dict{AbstractString, Function}(),
-            Dict{AbstractString, Function}(), context, 0)
+        subscription_connection = SubscriptionConnection(parent, parent.host,
+            parent.port, parent.password, parent.db, Dict{AbstractString, Function}(),
+            Dict{AbstractString, Function}(), context, Collections.PriorityQueue())
         on_connect(subscription_connection)
     end
 end
@@ -52,7 +42,6 @@ function subscribe(conn::SubscriptionConnection, channel::AbstractString, callba
     _subscribe(conn, [channel])
 end
 
-
 function subscribe(conn::SubscriptionConnection, subs::Dict{AbstractString, Function})
     for (channel, callback) in subs
         conn.callbacks[channel] = callback
@@ -69,14 +58,29 @@ startSubscriptionLoopAsync(conn::SubscriptionConnection, err_callback::Function)
    @async _loop(conn, err_callback) 
 
 function _loop(conn::SubscriptionConnection, err_callback::Function)
-    while isConnected(conn)
+    runloop = true
+    while isConnected(conn).reply == REDIS_OK && runloop
         try
-            reply = get_reply(conn)
-            message = SubscriptionMessage(reply)
-            if message.message_type == SubscriptionMessageType.Message
-                conn.callbacks[message.channel](message.message)
-            elseif message.message_type == SubscriptionMessageType.Pmessage
-                conn.pcallbacks[message.channel](message.message)
+            if length(conn.Q) > 0 
+                cmd = Collections.dequeue!(conn.Q)
+                reply = @threadcall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, cmd)
+                delete!(conn.callbacks, split(cmd, " ")[2])
+                runloop = length(conn.callbacks) > 0
+            elseif length(conn.callbacks) > 0 
+                reply = @threadcall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, "")
+            else # nothing more to process
+                exit()
+            end
+            jreply = Redis.get_result(reply)
+            if (typeof(jreply)==Array{Any,1} && length(jreply) > 0 && jreply[1] == "unsubscribe")
+                println(jreply)
+            else
+                message = Redis.SubscriptionMessage(jreply)
+                if message.message_type == Redis.SubscriptionMessageType.Message
+                    conn.callbacks[message.channel](message.message)
+                elseif message.message_type == Redis.SubscriptionMessageType.Pmessage
+                    conn.pcallbacks[message.channel](message.message)
+                end
             end
         catch err
             err_callback(err)
@@ -88,16 +92,11 @@ export startSubscriptionLoop, startSubscriptionLoopAsync
 
 function unsubscribe(conn::SubscriptionConnection, channels...)
     for channel in channels
-        delete!(conn.callbacks, channel)
-        reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, "unsubscribe $channel")
-        #get_result(reply)
+        Collections.enqueue!(conn.Q, "unsubscribe $channel", 0)
+        # un-block the subscription message loop with an empty message
+        publish(conn.parent, channel, "")
     end
 end
-
-###########################
-# TODO:  pattern pub sub
-#
-###########################
 
 baremodule SubscriptionMessageType
     const Message = 0
