@@ -79,7 +79,7 @@ replies to return and returns one if so. Otherwise, it flushes the output
 buffer to the socket and reads until it has a reply.
 """
 function call_get_reply(conn::SubscribableConnection, redisReply::Array{Ptr{RedisReply}, 1})
-    @threadcall((:redisGetReply, "libhiredis"), Int32, (Ptr{RedisContext}, Ptr{Ptr{RedisReply}}), conn.context, redisReply)
+    ccall((:redisGetReply, "libhiredis"), Int32, (Ptr{RedisContext}, Ptr{Ptr{RedisReply}}), conn.context, redisReply)
 end
 
 """

@@ -297,7 +297,7 @@ end
 
 # Custom commands (PubSub/Transaction)
 @redisfunction "publish" Integer channel message
-@redisfunction "pubsub" Array{Any, 1} subcommand
+@redisfunction "pubsub" Array{Any, 1} subcommand cmds...
 
 #Need a specialized version of execute to keep the connection in the transaction state
 function exec(conn::TransactionConnection)

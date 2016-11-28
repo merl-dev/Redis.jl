@@ -63,7 +63,7 @@ function _loop(conn::SubscriptionConnection, err_callback::Function)
         try
             if length(conn.Q) > 0 
                 cmd = Collections.dequeue!(conn.Q)
-                reply = @threadcall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, cmd)
+                reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, cmd)
                 delete!(conn.callbacks, split(cmd, " ")[2])
                 runloop = length(conn.callbacks) > 0
             elseif length(conn.callbacks) > 0 
@@ -93,7 +93,7 @@ export startSubscriptionLoop, startSubscriptionLoopAsync
 function unsubscribe(conn::SubscriptionConnection, channels...)
     for channel in channels
         Collections.enqueue!(conn.Q, "unsubscribe $channel", 0)
-        # un-block the subscription message loop with an empty message
+        # fudge:  un-block the subscription message loop with an empty message
         publish(conn.parent, channel, "")
     end
 end

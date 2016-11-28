@@ -478,12 +478,13 @@ function pubSubTest(conn)
 end   
 
 @testset "Pub/Sub" begin
-    conn2 = RedisConnection()
-    subs, x = pubSubTest(conn2)
+    subs, x = pubSubTest(conn)
     clients = client_list(subs.parent)
-    @test length(clients) == 2
+    @test length(clients) == 3
     # one client should have 2 subscriptions  
     @test (clients[1]["sub"] == "2" || clients[2]["sub"] == "2" || clients[3]["sub"] == "2")
+    @test pubsub(conn, "channels") = Any["duplicate", "channel"]
+    @test pubsub(conn, "numsub", "duplicate", "channel") == Any["duplicate", 1, "channel", 1]
     tsk = startSubscriptionLoopAsync(subs, println)
     @test typeof(tsk) == Task
     @test tsk.state == :queued || tsk.state == :runnable
@@ -493,7 +494,6 @@ end
     unsubscribe(subs, "channel")
     unsubscribe(subs, "duplicate")
     disconnect(subs)
-    disconnect(conn2)
 end
 
 # some tests removed, were causing travis failure

@@ -77,6 +77,7 @@ nullcb(args) = nothing
 include("libhiredis.jl")
 include("exceptions.jl")
 include("connection.jl")
+include("async.jl")
 include("conversions.jl")
 include("sentinel.jl")
 include("pubsub.jl")
