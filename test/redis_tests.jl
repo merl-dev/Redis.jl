@@ -491,7 +491,7 @@ end
     @test x == ["hello, world!"]
     unsubscribe(subs, "channel")
     unsubscribe(subs, "duplicate")
-    disconnect(subs)
+    #disconnect(subs)
 end
 
 # some tests removed, were causing travis failure
