@@ -63,7 +63,7 @@ function _loop(conn::SubscriptionConnection, err_callback::Function)
         try
             if length(conn.Q) > 0 
                 cmd = Collections.dequeue!(conn.Q)
-                reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, cmd)
+                reply = @threadcall((:redisAppendCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, cmd)
                 delete!(conn.callbacks, split(cmd, " ")[2])
                 runloop = length(conn.callbacks) > 0
             elseif length(conn.callbacks) > 0 
