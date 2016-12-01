@@ -151,16 +151,16 @@ resorting to the use of `Dict`, which cannot be used in the case where all entri
 @redisfunction "zincrby" AbstractString key increment member
 
 @redisfunction "zlexcount" Integer key min max
-@redisfunction "zrange" OrderedSet{AbstractString} key start finish options...
-@redisfunction "zrangebylex" OrderedSet{AbstractString} key min max options...
-@redisfunction "zrangebyscore" OrderedSet{AbstractString} key min max options...
+@redisfunction "zrange" Vector{AbstractString} key start finish options...
+@redisfunction "zrangebylex" Vector{AbstractString} key min max options...
+@redisfunction "zrangebyscore" Vector{AbstractString} key min max options...
 @redisfunction "zrank" Nullable{Integer} key member
 @redisfunction "zrem" Integer key member members...
 @redisfunction "zremrangebylex" Integer key min max
 @redisfunction "zremrangebyrank" Integer key start finish
 @redisfunction "zremrangebyscore" Integer key start finish
-@redisfunction "zrevrange" OrderedSet{AbstractString} key start finish options...
-@redisfunction "zrevrangebyscore" OrderedSet{AbstractString} key start finish options...
+@redisfunction "zrevrange" Vector{AbstractString} key start finish options...
+@redisfunction "zrevrangebyscore" Vector{AbstractString} key start finish options...
 @redisfunction "zrevrank" Nullable{Integer} key member
 # ZCORE returns a Bulk string reply: the score of member (a double precision floating point
 # number), represented as string.
@@ -223,6 +223,8 @@ function client_list(conn::RedisConnectionBase)
     results
 end
 
+client_getname(conn::RedisConnectionBase) = do_command(conn, "client getname")
+
 # Transaction commands
 @redisfunction "discard" Bool
 @redisfunction "exec" Array{Bool} # only one element ever in this array?
@@ -250,9 +252,8 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 # Server commands
 @redisfunction "bgrewriteaof" AbstractString
 @redisfunction "bgsave" AbstractString
-@redisfunction "client_getname" AbstractString
-@redisfunction "client_pause" Bool timeout
-@redisfunction "client_setname" Bool name
+@redisfunction "client_pause" AbstractString timeout
+@redisfunction "client_setname" AbstractString name
 @redisfunction "cluster_slots" Array{Any, 1}
 @redisfunction "command" Array{Any,1}
 @redisfunction "command_count" Integer

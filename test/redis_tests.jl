@@ -241,20 +241,20 @@ end
 end
 
 @testset "Sorted Sets" begin
-    @test zadd(conn, testkey, 0, s1) == true
-    @test zadd(conn, testkey, 1., s1) == false
-    @test zadd(conn, testkey, 1., s2) == true
-    @test zrange(conn, testkey, 0, -1) == OrderedSet([s1, s2])
+    @test zadd(conn, testkey, 0, "a") == true
+    @test zadd(conn, testkey, 1., "a") == false
+    @test zadd(conn, testkey, 1., "b") == true
+    @test zrange(conn, testkey, 0, -1) == AbstractString["a", "b"]
     @test zcard(conn, testkey) == 2
-    zadd(conn, testkey, 1.5, s3)
+    zadd(conn, testkey, 1.5, "c")
     @test zcount(conn, testkey, 0, 1) == 2   # range as int
     @test zcount(conn, testkey, "-inf", "+inf") == 3 # range as string
-    @test zincrby(conn, testkey, 1, s1) == "2"
-    @test float(zincrby(conn, testkey, 1.2, s1)) == 3.2
-    @test zrem(conn, testkey, s1, s2) == 2
+    @test zincrby(conn, testkey, 1, "a") == "2"
+    @test float(zincrby(conn, testkey, 1.2, "a")) == 3.2
+    @test zrem(conn, testkey, "a", "b") == 2
     del(conn, testkey)
 
-    @test zadd(conn, testkey, zip(zeros(1:3), [s1, s2, s3])...) == 3
+    @test zadd(conn, testkey, zip(zeros(1:3), ["a", "b", "c"])...) == 3
     del(conn, testkey)
 
     vals = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
@@ -263,18 +263,18 @@ end
     zadd(conn, testkey, zip(zeros(length(vals)), vals)...)
     @test zlexcount(conn, testkey, "-", "+") == length(vals)
     @test zlexcount(conn, testkey, "[b", "[f") == 5
-    @test zrangebylex(conn, testkey, "-", "[c") == OrderedSet(["a", "b", "c"])
-    @test zrangebylex(conn, testkey, "[aa", "(g") == OrderedSet(["b", "c", "d", "e", "f"])
-    @test zrangebylex(conn, testkey, "[a", "(g") == OrderedSet(["a", "b", "c", "d", "e", "f"])
+    @test zrangebylex(conn, testkey, "-", "[c") == AbstractString["a", "b", "c"]
+    @test zrangebylex(conn, testkey, "[aa", "(g") == AbstractString["b", "c", "d", "e", "f"]
+    @test zrangebylex(conn, testkey, "[a", "(g") == AbstractString["a", "b", "c", "d", "e", "f"]
     @test zremrangebylex(conn, testkey, "[a", "[h") == 8
-    @test zrange(conn, testkey, 0, -1) == OrderedSet(["i", "j"])
+    @test zrange(conn, testkey, 0, -1) == AbstractString["i", "j"]
     del(conn, testkey)
 
     # tests where scores are sequence 1:10
     zadd(conn, testkey, zip(1:length(vals), vals)...)
-    @test zrangebyscore(conn, testkey, "(1", "2") == OrderedSet(["b"])
-    @test zrangebyscore(conn, testkey, "1", "2") == OrderedSet(["a", "b"])
-    @test zrangebyscore(conn, testkey, "(1", "(2") == OrderedSet([])
+    @test zrangebyscore(conn, testkey, "(1", "2") == AbstractString["b"]
+    @test zrangebyscore(conn, testkey, "1", "2") == AbstractString["a", "b"]
+    @test zrangebyscore(conn, testkey, "(1", "(2") == []
     @test zrank(conn, testkey, "d") == Nullable(3) # redis arrays 0-base
 
     # 'NIL'
@@ -283,14 +283,14 @@ end
 
     zadd(conn, testkey, zip(1:length(vals), vals)...)
     @test zremrangebyrank(conn, testkey, 0, 1) == 2
-    @test zrange(conn, testkey, 0, -1, "WITHSCORES") == OrderedSet(["c", "3", "d", "4", "e", "5", "f", "6", "g", "7", "h", "8", "i", "9", "j", "10"])
+    @test zrange(conn, testkey, 0, -1, "WITHSCORES") == AbstractString["c", "3", "d", "4", "e", "5", "f", "6", "g", "7", "h", "8", "i", "9", "j", "10"]
     @test zremrangebyscore(conn, testkey, "-inf", "(5") == 2
-    @test zrange(conn, testkey, 0, -1, "WITHSCORES") == OrderedSet(["e", "5", "f", "6", "g", "7", "h", "8", "i", "9", "j", "10"])
-    @test zrevrange(conn, testkey, 0, -1) == OrderedSet(["j", "i", "h", "g", "f", "e"])
-    @test zrevrangebyscore(conn, testkey, "+inf", "-inf") == OrderedSet(["j", "i", "h", "g", "f", "e"])
-    @test zrevrangebyscore(conn, testkey, "+inf", "-inf", "WITHSCORES", "LIMIT", 2, 3) == OrderedSet(["h", "8", "g", "7", "f", "6"])
-    @test zrevrangebyscore(conn, testkey, 7, 5) == OrderedSet(["g", "f", "e"])
-    @test zrevrangebyscore(conn, testkey, "(6", "(5") == OrderedSet{AbstractString}()
+    @test zrange(conn, testkey, 0, -1, "WITHSCORES") == AbstractString["e", "5", "f", "6", "g", "7", "h", "8", "i", "9", "j", "10"]
+    @test zrevrange(conn, testkey, 0, -1) == AbstractString["j", "i", "h", "g", "f", "e"]
+    @test zrevrangebyscore(conn, testkey, "+inf", "-inf") == AbstractString["j", "i", "h", "g", "f", "e"]
+    @test zrevrangebyscore(conn, testkey, "+inf", "-inf", "WITHSCORES", "LIMIT", 2, 3) == AbstractString["h", "8", "g", "7", "f", "6"]
+    @test zrevrangebyscore(conn, testkey, 7, 5) == AbstractString["g", "f", "e"]
+    @test zrevrangebyscore(conn, testkey, "(6", "(5") == AbstractString[]
     @test zrevrank(conn, testkey, "e") == Nullable(5)
     @test isnull(zrevrank(conn, "ordered_set", "non_existent_member"))
     @test Redis.zscore(conn, testkey, "e") == Nullable("5")
@@ -301,14 +301,14 @@ end
     zadd(conn, testkey, zip(1:length(vals), vals)...)
     zadd(conn, testkey2, zip(1:length(vals2), vals2)...)
     @test zunionstore(conn, testkey3, 2, [testkey, testkey2]) == 10
-    @test zrange(conn, testkey3, 0, -1) == OrderedSet(vals)
+    @test zrange(conn, testkey3, 0, -1) == AbstractString["a", "b", "e", "c", "f", "g", "d", "h", "i", "j"]
     del(conn, testkey3)
     zunionstore(conn, testkey3, 2, [testkey, testkey2], [2; 3])
-    @test zrange(conn, testkey3, 0, -1) == OrderedSet(["a", "b", "e", "f", "g", "c", "h", "i", "d", "j"])
+    @test zrange(conn, testkey3, 0, -1) == AbstractString["a", "b", "e", "f", "g", "c", "h", "i", "d", "j"]
     zunionstore(conn, testkey3, 2, [testkey, testkey2], [2; 3], aggregate=Aggregate.Max)
-    @test zrange(conn, testkey3, 0, -1) == OrderedSet(["a", "b", "c", "e", "d", "f", "g", "h", "i", "j"])
+    @test zrange(conn, testkey3, 0, -1) == AbstractString["a", "b", "c", "e", "d", "f", "g", "h", "i", "j"]
     zunionstore(conn, testkey3, 2, [testkey, testkey2], [2; 3], aggregate=Aggregate.Min)
-    @test zrange(conn, testkey3, 0, -1) == OrderedSet(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"])
+    @test zrange(conn, testkey3, 0, -1) == AbstractString["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]
     del(conn, testkey3)
 
     vals2 = ["a", "b", "c", "d"]
@@ -480,10 +480,10 @@ end
 @testset "Pub/Sub" begin
     subs, x = pubSubTest(conn)
     clients = client_list(subs.parent)
-    @test length(clients) == 3
+    @test length(clients) == 2
     # one client should have 2 subscriptions  
-    @test (clients[1]["sub"] == "2" || clients[2]["sub"] == "2" || clients[3]["sub"] == "2")
-    @test pubsub(conn, "channels") = Any["duplicate", "channel"]
+    @test (clients[1]["sub"] == "2" || clients[2]["sub"] == "2")
+    # @test pubsub(conn, "channels") = Any["duplicate", "channel"] fails, ""channels"" is not a valid function argument name
     @test pubsub(conn, "numsub", "duplicate", "channel") == Any["duplicate", 1, "channel", 1]
     tsk = startSubscriptionLoopAsync(subs, println)
     @test typeof(tsk) == Task
@@ -518,7 +518,17 @@ end
     #@test Redis.save(conn) == "OK"
     @test Redis.slaveof(conn, "localhost", 6379) == "OK"
     @test slaveof(conn, "no", "one") == "OK"
+    @test client_setname(conn, "aClientName") == "OK"
+    @test client_getname(conn) == "aClientName"
     @test typeof(Redis.time(conn)) == DateTime 
+    begin 
+        tic()
+        client_pause(conn, 2000)
+        client_getname(conn) == "aClientName"
+        @test toc() > 2
+    end
+    
+
 end
 
 disconnect(conn)
