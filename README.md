@@ -1,11 +1,27 @@
 # Redis.jl
 
 
-[![Build Status](https://travis-ci.org/jkaye2012/Redis.jl.svg?branch=master)](https://travis-ci.org/jkaye2012/Redis.jl) [![Coverage Status](https://coveralls.io/repos/github/merl-dev/Redis.jl/badge.svg?branch=master)](https://coveralls.io/github/merl-dev/Redis.jl?branch=master)  [![DataFrames](http://pkg.julialang.org/badges/Redis_0.4.svg)](http://pkg.julialang.org/?pkg=Redis&ver=0.4) [![DataFrames](http://pkg.julialang.org/badges/Redis_0.5.svg)](http://pkg.julialang.org/?pkg=Redis&ver=0.5)
+[![Build Status](https://travis-ci.org/merl-dev/Redis.jl.svg?branch=hiredis)](https://travis-ci.org/merl-dev/Redis.jl) [![Coverage Status](https://coveralls.io/repos/github/merl-dev/Redis.jl/badge.svg?branch=master)](https://coveralls.io/github/merl-dev/Redis.jl?branch=hiredis) [![DataFrames](http://pkg.julialang.org/badges/Redis_0.5.svg)](http://pkg.julialang.org/?pkg=Redis&ver=0.5)
 
 
 
 Redis.jl is a fully-featured Redis client for the Julia programming language. The implementation is an attempt at an easy to understand, minimalistic API that mirrors actual Redis commands as closely as possible.
+
+## HiRedis branch
+
+Merges a debugged version of HiRedis.jl, based on the C-language hiredis interface to Redis. Thus far all basic commands pass tests without modification to the original Redis.jl API. Performance enhancements are significant, see BenchmarkNotes.md for examples. **Redis responses
+are no longer converted to complex types.  
+
+In order to maximize performance, send string commands using `do_command`:  for example, instead of `set(conn, "akey", "avalue")`,
+use `do_command(conn, "set akey avalue")` in order to bypass command parsing.  In addition, for use cases where Redis server responses are not required immediately, use pipeline commands: `pipeline_command(conn, "set akey value")`. 
+
+
+_TODO_:
+* key-prefixing
+* Sentinels tests
+* Implement the libhiredis `RedisAsyncContext` and `redisAsyncCommand` interfaces
+* Clusters remain without commands nor tests
+* create a clean benchmark suite
 
 ## Basics
 
@@ -25,13 +41,6 @@ set(conn, "foo", "bar")
 get(conn, "foo") # Returns "bar"
 ```
 
-Anywhere that `String` would normally be accepted, keywords can be passed as well. In fact, any Type can be passed so long as the type has a method for the `string` function.
-
-```
-set(conn, :keyword, :value)
-get(conn, :keyword) # Returns "value"
-```
-
 For any Redis command `x`, the Julia function to call that command is `x`. Redis commands with spaces in them have their spaces replaced with underscores (`_`). For those already familiar with available Redis commands, this convention should make the API relatively straightforward to understand. There are two exceptions to this convention due to conflicts with Julia:
 
 * The _type_ key command is `keytype`
@@ -47,16 +56,13 @@ The `disconnect` function can be used with any of the connection types detailed 
 
 ### Commands with options
 
-Some Redis commands have a more complex syntax that allows for options to be passed to the command. Redis.jl supports these options through the use of a final varargs parameter to those functions (for example, `scan`). In these cases, the options should be passed as individual strings at the end of the function. As mentioned earlier, keywords or other Types can be passed for these options as well and will be coerced to `String`.
+Some Redis commands have a more complex syntax that allows for options to be passed to the command. Redis.jl supports these options through the use of a final varargs parameter to those functions (for example, `scan`). In these cases, the options should be passed as individual strings at the end of the function.
 
 ```
 scan(conn, 0, "match", "foo*")
-scan(conn, 2, :count, 2)
 ```
 
 If users are interested, the API could be improved to provide custom functions for these complex commands.
-
-An exception to this option syntax are the functions `zinterstore` and `zunionstore`, which have specific implementations to allow for ease of use due to their greater complexity.
 
 ## Pipelining
 
@@ -108,7 +114,7 @@ multi(trans) # Throws a ServerException
 
 Notice the subtle difference from the previous example; after calling `exec`, the `TransactionConnection` is placed into another `MULTI` block rather than returning to a 'normal' state as the `RedisConnection` does.
 
-## Pub/sub
+## Pub/sub (NEEDS REWRITE)
 
 Redis.jl provides full support for Redis pub/sub. Publishing is accomplished by using the command as normal:
 
@@ -158,6 +164,43 @@ sentinel_masters(sentinel) # Returns an Array{Dict{String, String}} of master in
 ```
 
 `SentinelConnection` is also `SubscribableConnection`, allowing the user to build a `SubscriptionConnection` for monitoring cluster health through Sentinel messages. See [the Redis Sentinel documentation](http://redis.io/topics/sentinel) for more information.
+
+## Streaming Scanners
+
+In order to simplify use of the Redis scan commands, SCAN (keys), SSCAN (sets), ZSCAN (ordered sets), and HSCAN (hashes), a streaming interface is provided. To initialize a scan use the appropriate constructor:
+
+`KeyScanner(conn::RedisConnection, match::AbstractString, count::Int)`
+
+`SetScanner(conn::RedisConnection, key::AbstractString, match::AbstractString, count::Int)`
+
+`OrderedSetScanner(conn::RedisConnection, key::AbstractString, match::AbstractString, count::Int)`
+
+`HashScanner(conn::RedisConnection, key::AbstractString, match::AbstractString, count::Int)`
+
+`match` is used for pattern matching, and defaults to "\*",  while `count` specifies the number of items returned per iteration and defaults to 1.
+
+Three methods are provided for scanning:
+
+`next!(ss::StreamScanner, count)` retrieves `count` elements as an `Array` or `Dict`.  `count` defaults to the value
+used in the constructor, but can be modified per request. __As per the Redis spec, each call to `next!` may return one or
+more elements that were retrieved in a previous call.__
+
+`collect(ss::StreamScanner)` will keep scanning until all the elements have bee retrieved.
+
+`collectAsync!(ss::StreamScanner, coll::<Collection Type>; cb::Function==nullcb)` enables asynchronous execution of a scan
+accumulating results in a predefined collection object, with an optional callback parameter that defaults to do nothing.  The callback function should take one parameter, the result collection and do something appropriate for that collection type.
+
+Note the following caveats from the Redis documentation at http://redis.io/commands/scan:
+
+    * The SCAN family of commands only offer limited guarantees about the returned elements since the collection
+    that we incrementally iterate can change during the iteration process.
+
+    * Basically with COUNT the user specified _the amount of work that should be done at every call in order to
+      retrieve elements from the collection_. This is __just a hint__ for the implementation, however generally
+      speaking this is what you could expect most of the times from the implementation.
+
+__Please refer to the Redis documentation for more details.__
+
 
 ### Notes
 

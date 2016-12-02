@@ -11,9 +11,7 @@ immutable ProtocolException <: RedisException
 end
 
 # Thrown if the server returns an error response (RESP error)
-# merl-dev: removed error_prefix as a separate member, the entire message
-# is returned as a single string.  We could parse the message on the first word,
-# however, as per http://redis.io/topics/protocol:
+# We could parse the message on the first word, however, as per http://redis.io/topics/protocol:
 #   "This is called an Error Prefix and is a way to allow the client to understand
 #   the kind of error returned by the server without to rely on the exact message given,
 #   that **may change over the time**.
@@ -24,7 +22,6 @@ end
 #   and a limited client implementation may simply return a generic error condition,
 #   such as false.
 immutable ServerException <: RedisException
-    # error_prefix::AbstractString
     message::AbstractString
 end
 

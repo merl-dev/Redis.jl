@@ -1,12 +1,24 @@
+#__precompile__()
 module Redis
+
+if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
+    include("../deps/deps.jl")
+else
+    Pkg.build("Redis")
+end
+
+abstract RedisConnectionBase
+abstract SubscribableConnection <: RedisConnectionBase
+
 using Base.Dates
 
-import Base.get, Base.keys, Base.time
+import Base.get, Base.keys, Base.time, DataStructures.OrderedSet
 
 export RedisException, ConnectionException, ServerException, ProtocolException, ClientException
 export RedisConnection, SentinelConnection, TransactionConnection, SubscriptionConnection,
-disconnect, is_connected, open_transaction, reset_transaction, open_subscription,
-open_pipeline, read_pipeline
+       disconnect, isConnected, open_transaction, reset_transaction, open_subscription,
+       open_pipeline, read_pipeline
+export RedisContext, RedisReply, RedisReader
 # Key commands
 export del, dump, exists, expire, expireat, keys,
        migrate, move, persist, pexpire, pexpireat,
@@ -44,23 +56,34 @@ export discard, exec, multi, unwatch, watch
 # Scripting commands
 export evalscript, evalsha, script_exists, script_flush, script_kill, script_load
 # PubSub commands
-export subscribe, publish, psubscribe, punsubscribe, unsubscribe
-# Server commands
-export bgrewriteaof, bgsave, client_list, client_pause, client_setname, cluster_slots,
-       command, command_count, command_info, config_get, config_resetstat, config_rewrite,
-       config_set, dbsize, debug_object, debug_segfault, flushall, flushdb, info, lastsave,
-       role, save, shutdown, slaveof, time
+export subscribe, publish, psubscribe, punsubscribe, unsubscribe, pubsub
+# Server commands (`info` command not exported due to conflicts with other packages)
+export bgrewriteaof, bgsave, client_list, client_pause, client_getname, client_setname, 
+       client_reply, cluster_slots, command, command_count, command_info, config_get, 
+       config_resetstat, config_rewrite, config_set, dbsize, debug_object, debug_segfault,
+       flushall, flushdb, lastsave, role, save, shutdown, slaveof, time
 # Sentinel commands
 export sentinel_masters, sentinel_master, sentinel_slaves, sentinel_getmasteraddrbyname,
        sentinel_reset, sentinel_failover, sentinel_monitor, sentinel_remove, sentinel_set
+# Streaming scanners
+export StreamScanner, KeyScanner, SetScanner, OrderedSetScanner, HashScanner, next!, 
+       collect, collectAsync!
 # Redis constants
-# TODO: add more, consider puuting these in separate constants.jl
+# TODO: add more, consider a separate constants.jl
 export REDIS_PERSISTENT_KEY, REDIS_EXPIRED_KEY
 
+"define a default callback that does nothing"
+nullcb(args) = nothing
+
+include("libhiredis.jl")
 include("exceptions.jl")
 include("connection.jl")
-include("client.jl")
-include("parser.jl")
+include("async.jl")
+include("sentinel.jl")
+include("pubsub.jl")
 include("commands.jl")
+include("command_defs.jl")
+include("streamscan.jl")
+
 
 end
