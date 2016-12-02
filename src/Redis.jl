@@ -1,4 +1,4 @@
-#__precompile__()
+__precompile__(true)
 module Redis
 
 if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
@@ -52,7 +52,7 @@ export pfadd, pfcount, pfmerge
 # Connection commands
 export auth, echo, ping, quit, select
 # Transaction commands
-export discard, exec, multi, unwatch, watch
+export discard, exec, exec_transaction, multi, unwatch, watch
 # Scripting commands
 export evalscript, evalsha, script_exists, script_flush, script_kill, script_load
 # PubSub commands
@@ -78,12 +78,13 @@ nullcb(args) = nothing
 include("libhiredis.jl")
 include("exceptions.jl")
 include("connection.jl")
+include("pipeline.jl")
+include("transaction.jl")
 include("async.jl")
 include("sentinel.jl")
 include("pubsub.jl")
 include("commands.jl")
 include("command_defs.jl")
 include("streamscan.jl")
-
 
 end

@@ -296,7 +296,7 @@ end
 @redisfunction "pubsub" subcommand cmds...
 
 #Need a specialized version of execute to keep the connection in the transaction state
-function exec(conn::TransactionConnection)
+function exec_transaction(conn::TransactionConnection)
     response = do_command(conn, EXEC)
     multi(conn)
     response

@@ -7,7 +7,7 @@
 
 Redis.jl is a fully-featured Redis client for the Julia programming language. The implementation is an attempt at an easy to understand, minimalistic API that mirrors actual Redis commands as closely as possible.
 
-## HiRedis branch
+## libhiredis
 
 Merges a debugged version of HiRedis.jl, based on the C-language hiredis interface to Redis. Thus far all basic commands pass tests without modification to the original Redis.jl API. Performance enhancements are significant, see BenchmarkNotes.md for examples. **Redis responses
 are no longer converted to complex types.  

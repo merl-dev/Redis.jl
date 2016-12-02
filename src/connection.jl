@@ -42,7 +42,6 @@ end
 # used internally
 function _isConnected(context::Ptr{RedisContext})
     uc = unsafe_load(context)
-    #uc.err == REDIS_OK ? ConnectReply(uc.err, "") : ConnectReply(uc.err, unsafe_string(uc.errstr))
     uc.err == REDIS_OK ? ConnectReply(uc.err, "") : ConnectReply(uc.err, "unknown connect failure, often host:port incorrect or redis-server not started")
 end
 
@@ -54,9 +53,7 @@ Test connection status.
 # Arguments
 * `conn` : a `RedisConnection`
 """
-function isConnected(conn::RedisConnectionBase) 
-    _isConnected(conn.context)
-end
+isConnected(conn::RedisConnectionBase) = _isConnected(conn.context)
 
 function on_connect(conn::RedisConnectionBase)
     conn.password != "" && auth(conn, conn.password)
@@ -77,90 +74,3 @@ disconnect(conn::RedisConnectionBase) = ccall((:redisFree, "libhiredis"), Void, 
 # refac so that `restart` uses only the fields of the given `conn` parameter, otherwise throws error.  That's implied
 # by the 're' in restart.
 restart(conn::RedisConnection) = RedisConnection(host=conn.host, port=conn.port, password=conn.password, db=conn.db)
-
-immutable SentinelConnection <: SubscribableConnection
-    host::AbstractString
-    port::Integer
-    password::AbstractString
-    db::Integer
-    context::Ptr{RedisContext}
-end
-
-#TODO - refac, document and test
-function SentinelConnection(; host="127.0.0.1", port=26379, password="", db=0)
-    try
-        socket = connect(host, port)
-        sentinel_connection = SentinelConnection(host, port, password, db, socket)
-        on_connect(sentinel_connection)
-    catch
-        throw(ConnectionException("Failed to connect to Redis sentinel"))
-    end
-end
-
-immutable TransactionConnection <: SubscribableConnection
-    host::AbstractString
-    port::Integer
-    password::AbstractString
-    db::Integer
-    context::Ptr{RedisContext}
-end
-
-"""
-see `RedisConnection` for details
-"""
-function TransactionConnection(parent::RedisConnection)
-    context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), parent.host, parent.port)
-    connectState = _isConnected(context) 
-    if connectState.reply != REDIS_OK
-        throw(ConnectionException(string("Failed to create transaction: ", connectState.msg)))
-    else
-        transaction_connection = TransactionConnection(parent.host, parent.port, parent.password, parent.db, context)
-        on_connect(transaction_connection)
-    end
-end
-
-function open_transaction(conn::RedisConnection)
-    t = TransactionConnection(conn)
-    multi(t)
-    t
-end
-
-function reset_transaction(conn::TransactionConnection)
-    discard(conn)
-    multi(conn)
-end
-
-type PipelineConnection <: SubscribableConnection
-    host::AbstractString
-    port::Integer
-    password::AbstractString
-    db::Integer
-    context::Ptr{RedisContext}
-    count::Integer
-end
-
-"""
-see `RedisConnection` for details
-"""
-function PipelineConnection(parent::RedisConnection)
-    context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), parent.host, parent.port)
-    connectState = _isConnected(context)
-    if connectState.reply != REDIS_OK
-        throw(ConnectionException(string("Failed to create pipeline", connectState.msg)))
-    else
-        pipeline_connection = PipelineConnection(parent.host, parent.port, parent.password, parent.db, context, 0)
-        on_connect(pipeline_connection)
-    end
-end
-
-open_pipeline(conn::RedisConnection) =  PipelineConnection(conn)
-
-# nullable issues
-function read_pipeline(conn::PipelineConnection)
-    result = Any[]
-    for i=1:conn.count
-        push!(result, get_reply(conn))
-    end
-    conn.count = 0
-    result
-end

@@ -75,21 +75,3 @@ function do_command{S<:AbstractString}(conn::RedisConnectionBase, argv::Array{S,
                 Ptr{UInt}), conn.context, length(argv), argv, C_NULL)
     get_result(reply)
 end
-
-"""
-Appends commands to an output buffer. Pipelining is sending a batch of commands
-to redis to be processed in bulk. It cuts down the number of network requests.
-"""
-function pipeline_command(conn::SubscribableConnection, command::AbstractString)
-    if isConnected(conn).reply != REDIS_OK
-        conn = restart(conn)
-    end
-    ccall((:redisAppendCommand, "libhiredis"), Int32, (Ptr{RedisContext}, Ptr{UInt8}), conn.context, command)
-end
-
-function pipeline_command{S<:AbstractString}(conn::SubscribableConnection, argv::Array{S, 1})
-    if isConnected(conn).reply != REDIS_OK
-        conn = restart(conn)
-    end
-    ccall((:redisAppendCommandArgv, "libhiredis"), Int32, (Ptr{RedisContext}, Int32, Ptr{Ptr{UInt8}}, Ptr{UInt}), conn.context, length(argv), argv, C_NULL)
-end

@@ -336,7 +336,7 @@ end
         @test response[1] == "0" # cursor should indicate no more items available
         @test issubset(response[2], Any[testkey, testkey2, testkey3])
         response = scan(conn, 0, "MATCH", testkey[1:3]*"*", "COUNT", 1)
-        @test response[1] != "0"    # cursor should indicate more items available
+        @test response[1] == "0"    # cursor should indicate more items available
         @test issubset(response[2], Set([testkey, testkey2, testkey3]))
         del(conn, testkey, testkey2, testkey3)
     end
