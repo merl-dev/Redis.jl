@@ -9,21 +9,19 @@ Redis.jl is a fully-featured Redis client for the Julia programming language. Th
 
 ## HiRedis branch
 
-Merges a debugged version of HiRedis.jl, based on the C-language hiredis interface to Redis. Thus far all basic commands pass tests without modification to the original Redis.jl API. Performance enhancements are significant, see BenchmarkNotes.md for examples.  
+Merges a debugged version of HiRedis.jl, based on the C-language hiredis interface to Redis. Thus far all basic commands pass tests without modification to the original Redis.jl API. Performance enhancements are significant, see BenchmarkNotes.md for examples. **Redis responses
+are no longer converted to complex types.  
 
 In order to maximize performance, send string commands using `do_command`:  for example, instead of `set(conn, "akey", "avalue")`,
-use `do_command(conn, "set akey avalue")` in order to bypass command parsing.  In addition, for use cases where Redis server responses are not required immediately, use pipeline commands: `pipeline_command(conn, "set akey value")`. In certain scenarios further performance enhancements can be attained by setting the Julia `ENV` key "REDIS_CONVERT_REPLY" to `false` before `using Redis`.  This will bypass all response conversions and return the original Redis server response.
+use `do_command(conn, "set akey avalue")` in order to bypass command parsing.  In addition, for use cases where Redis server responses are not required immediately, use pipeline commands: `pipeline_command(conn, "set akey value")`. 
 
 
 _TODO_:
 * key-prefixing
-* ~~Pipelines~~, Transactions, Sentinels, and Pub/Sub need refactoring to pass tests
-* Add `start`, and `done` to `StreamScanners` -- not sure we need to implement an iterator interface since they aren't true iterators
-* ~~Implement the libhiredis `RedisAsyncContext` and `redisAsyncCommand` interfaces~~ not implemented, unnecessary
+* Sentinels tests
+* Implement the libhiredis `RedisAsyncContext` and `redisAsyncCommand` interfaces
 * Clusters remain without commands nor tests
-* Write "REDIS_CONVERT_REPLY" test suite (basically, duplicate current test suite)
 * create a clean benchmark suite
-* see ROADMAP.md
 
 ## Basics
 
@@ -43,13 +41,6 @@ set(conn, "foo", "bar")
 get(conn, "foo") # Returns "bar"
 ```
 
-Anywhere that `String` would normally be accepted, keywords can be passed as well. In fact, any Type can be passed so long as the type has a method for the `string` function.
-
-```
-set(conn, :keyword, :value)
-get(conn, :keyword) # Returns "value"
-```
-
 For any Redis command `x`, the Julia function to call that command is `x`. Redis commands with spaces in them have their spaces replaced with underscores (`_`). For those already familiar with available Redis commands, this convention should make the API relatively straightforward to understand. There are two exceptions to this convention due to conflicts with Julia:
 
 * The _type_ key command is `keytype`
@@ -65,16 +56,13 @@ The `disconnect` function can be used with any of the connection types detailed 
 
 ### Commands with options
 
-Some Redis commands have a more complex syntax that allows for options to be passed to the command. Redis.jl supports these options through the use of a final varargs parameter to those functions (for example, `scan`). In these cases, the options should be passed as individual strings at the end of the function. As mentioned earlier, keywords or other Types can be passed for these options as well and will be coerced to `String`.
+Some Redis commands have a more complex syntax that allows for options to be passed to the command. Redis.jl supports these options through the use of a final varargs parameter to those functions (for example, `scan`). In these cases, the options should be passed as individual strings at the end of the function.
 
 ```
 scan(conn, 0, "match", "foo*")
-scan(conn, 2, :count, 2)
 ```
 
 If users are interested, the API could be improved to provide custom functions for these complex commands.
-
-An exception to this option syntax are the functions `zinterstore` and `zunionstore`, which have specific implementations to allow for ease of use due to their greater complexity.
 
 ## Pipelining
 
@@ -126,7 +114,7 @@ multi(trans) # Throws a ServerException
 
 Notice the subtle difference from the previous example; after calling `exec`, the `TransactionConnection` is placed into another `MULTI` block rather than returning to a 'normal' state as the `RedisConnection` does.
 
-## Pub/sub
+## Pub/sub (NEEDS REWRITE)
 
 Redis.jl provides full support for Redis pub/sub. Publishing is accomplished by using the command as normal:
 
