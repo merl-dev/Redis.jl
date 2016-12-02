@@ -20,9 +20,9 @@ const REDIS_EXPIRED_KEY =  -2
 
 @testset "Strings" begin
     @test set(conn, testkey, s1) == "OK"
-    @test get(conn, testkey) == Nullable(s1)
-    @test Redis.exists(conn, testkey)
-    @test keys(conn, testkey) == Set([testkey])
+    @test get(conn, testkey) == s1
+    @test Redis.exists(conn, testkey) == 1
+    @test keys(conn, testkey) == [testkey]
     @test del(conn, testkey, "notakey", "notakey2") == 1  # only 1 of 3 key exists
 
     # 'NIL'
@@ -32,14 +32,14 @@ const REDIS_EXPIRED_KEY =  -2
     set(conn, testkey2, s2)
     set(conn, testkey3, s3)
     # RANDOMKEY can return 'NIL', so it returns Nullable.  KEYS * always returns empty Set when Redis is empty
-    @test get(randomkey(conn)) in keys(conn, "*")
+    @test randomkey(conn) in keys(conn, "*")
     @test getrange(conn, testkey, 0, 3) == s1[1:4]
 
     set(conn, testkey, 2)
     @test incr(conn, testkey) == 3
     @test incrby(conn, testkey, 3) == 6
     @test incrbyfloat(conn, testkey, 1.5) == "7.5"
-    @test mget(conn, testkey, testkey2, testkey3) == [Nullable("7.5"), Nullable(s2), Nullable(s3)]
+    @test mget(conn, testkey, testkey2, testkey3) == ["7.5", s2, s3]
     @test strlen(conn, testkey2) == length(s2)
     @test Redis.rename(conn, testkey2, testkey4) == "OK"
     @test testkey4 in keys(conn,"*")
@@ -108,10 +108,10 @@ end
 @testset "Migrate" begin
     # TODO: test of `migrate` requires 2 server instances in Travis
     set(conn, testkey, s1)
-    @test move(conn, testkey, 1)
+    @test move(conn, testkey, 1) == 1
     @test Redis.exists(conn, testkey) == false
     @test Redis.select(conn, 1) == "OK"
-    @test get(conn, testkey) == Nullable(s1)
+    @test get(conn, testkey) == s1
     del(conn, testkey)
     Redis.select(conn, 0)
 end
@@ -128,30 +128,30 @@ end
     @test Redis.exists(conn, testkey) == false
 
     set(conn, testkey, s1)
-    @test pexpire(conn, testkey, 1)
+    @test pexpire(conn, testkey, 1) == 1
     @test ttl(conn, testkey) == REDIS_EXPIRED_KEY
 
     set(conn, testkey, s1)
-    @test pexpire(conn, testkey, 2000)
+    @test pexpire(conn, testkey, 2000) == 1
     @test pttl(conn, testkey) > 100
-    @test persist(conn, testkey)
+    @test persist(conn, testkey) == 1
     @test ttl(conn, testkey) == REDIS_PERSISTENT_KEY
     del(conn, testkey, testkey2, testkey3)
 end
 
 @testset "Lists" begin
     @test lpush(conn, testkey, s1, s2, "a", "a", s3, s4) == 6
-    @test lpop(conn, testkey) == Nullable(s4)
-    @test rpop(conn, testkey) == Nullable(s1)
+    @test lpop(conn, testkey) == s4
+    @test rpop(conn, testkey) == s1
     @test isnull(lpop(conn, "non_existent_list"))
     @test isnull(rpop(conn, "non_existent_list"))
     @test llen(conn, testkey) == 4
     @test isnull(lindex(conn, "non_existent_list", 1))
-    @test lindex(conn, testkey, 0) == Nullable(s3)
+    @test lindex(conn, testkey, 0) == s3
     @test isnull(lindex(conn, testkey, 10))
     @test lrem(conn, testkey, 0, "a") == 2
     @test lset(conn, testkey, 0, s5) == "OK"
-    @test lindex(conn, testkey, 0) == Nullable(s5)
+    @test lindex(conn, testkey, 0) == s5
     @test linsert(conn, testkey, "BEFORE", s2, s3) == 3
     @test linsert(conn, testkey, "AFTER", s3, s6) == 4
     @test lpushx(conn, testkey2, "nothing")  == false
@@ -165,7 +165,7 @@ end
     lpush(conn, testkey, s3)
     listvals = [s3; s4; s5]
     for i in 1:3
-        @test rpoplpush(conn, testkey, testkey2) == Nullable(listvals[4-i])  # rpop
+        @test rpoplpush(conn, testkey, testkey2) == listvals[4-i]  # rpop
     end
     @test isnull(rpoplpush(conn, testkey, testkey2))
     @test llen(conn, testkey) == 0
@@ -187,28 +187,28 @@ end
     @test hmset(conn, testhash, Dict(1 => 2, "3" => 4, "5" => "6")) == "OK"
     @test hexists(conn, testhash, 1) == true
     @test hexists(conn, testhash, "1") == true
-    @test hget(conn, testhash, 1) == Nullable("2")
-    @test hgetall(conn, testhash) == Dict("1" => "2", "3" => "4", "5" => "6")
+    @test hget(conn, testhash, 1) == "2"
+    @test hgetall(conn, testhash) == ["3", "4", "5", "6", "1", "2"]
 
     @test isnull(hget(conn, testhash, "non_existent_field"))
-    @test hmget(conn, testhash, 1, 3) == [Nullable("2"), Nullable("4")]
+    @test hmget(conn, testhash, 1, 3) == ["2", "4"]
     # this is the one edge case where we can get a mixture of nils and strings in same array
     a = hmget(conn, testhash, "non_existent_field1", "non_existent_field2")
     @test isnull(a[1])
     @test isnull(a[2])
 
-    @test Set(hvals(conn, testhash)) == Set(["2", "4", "6"]) # use Set for comp as hash ordering is random
-    @test Set(hkeys(conn, testhash)) == Set(["1", "3", "5"])
+    @test hvals(conn, testhash) == ["4", "6", "2"] 
+    @test hkeys(conn, testhash) == ["3", "5", "1"]
     @test hset(conn, testhash, "3", 10) == false # if the field already hset returns false
-    @test hget(conn, testhash, "3") == Nullable("10") # but still sets it to the new value
+    @test hget(conn, testhash, "3") == "10" # but still sets it to the new value
     @test hset(conn, testhash, "10", "10") == true # new field hset returns true
-    @test hget(conn, testhash, "10") == Nullable("10") # correctly set new field
+    @test hget(conn, testhash, "10") == "10" # correctly set new field
     @test hsetnx(conn, testhash, "1", "10") == false # field exists
     @test hsetnx(conn, testhash, "11", "10") == true # field doesn't exist
     @test hlen(conn, testhash) == 5  # testhash now has 5 fields
 
     @test hincrby(conn, testhash, "1", 1) == 3
-    @test float(hincrbyfloat(conn, testhash, "1", 1.5)) == 4.5
+    @test hincrbyfloat(conn, testhash, "1", 1.5) == "4.5"
 
     del(conn, testhash)
 end
@@ -217,25 +217,25 @@ end
     @test sadd(conn, testkey, s1) == true
     @test sadd(conn, testkey, s1) == false  # already exists
     @test sadd(conn, testkey, s2) == true
-    @test smembers(conn, testkey) == Set([s1, s2])
+    @test issubset(smembers(conn, testkey), [s1, s2]) == true
     @test scard(conn, testkey) == 2
     sadd(conn, testkey, s3)
     @test smove(conn, testkey, testkey2, s3) == true
     @test sismember(conn, testkey2, s3) == true
     sadd(conn, testkey2, s2)
-    @test sunion(conn, testkey, testkey2) == Set([s1, s2, s3])
+    @test issubset(sunion(conn, testkey, testkey2), [s3, s1, s2]) == true
     @test sunionstore(conn, testkey3, testkey, testkey2) == 3
     @test srem(conn, testkey3, s1, s2, s3) == 3
-    @test smembers(conn, testkey3) == Set([])
+    @test smembers(conn, testkey3) == []
     @test sinterstore(conn, testkey3, testkey, testkey2) == 1
     # only the following method returns 'nil' if the Set does not exist
-    @test srandmember(conn, testkey3) in Set([Nullable(s1), Nullable(s2), Nullable(s3)])
+    @test srandmember(conn, testkey3) in [s1, s2, s3]
     @test isnull(srandmember(conn, "empty_set"))
     # this method returns an emtpty Set if the the Set is empty
-    @test issubset(srandmember(conn, testkey2, 2), Set([s1, s2, s3]))
-    @test srandmember(conn, "non_existent_set", 10) == Set{AbstractString}()
-    @test sdiff(conn, testkey, testkey2) == Set([s1])
-    @test spop(conn, testkey) in Set([Nullable(s1), Nullable(s2), Nullable(s3)])
+    @test issubset(srandmember(conn, testkey2, 2), [s1, s2, s3])
+    @test srandmember(conn, "non_existent_set", 10) == Any[]
+    @test sdiff(conn, testkey, testkey2) == [s1]
+    @test spop(conn, testkey) in [s1, s2, s3]
     @test isnull(spop(conn, "empty_set"))
     del(conn, testkey, testkey2, testkey3)
 end
@@ -275,7 +275,7 @@ end
     @test zrangebyscore(conn, testkey, "(1", "2") == AbstractString["b"]
     @test zrangebyscore(conn, testkey, "1", "2") == AbstractString["a", "b"]
     @test zrangebyscore(conn, testkey, "(1", "(2") == []
-    @test zrank(conn, testkey, "d") == Nullable(3) # redis arrays 0-base
+    @test zrank(conn, testkey, "d") == 3 
 
     # 'NIL'
     @test isnull(zrank(conn, testkey, "z"))
@@ -291,9 +291,9 @@ end
     @test zrevrangebyscore(conn, testkey, "+inf", "-inf", "WITHSCORES", "LIMIT", 2, 3) == AbstractString["h", "8", "g", "7", "f", "6"]
     @test zrevrangebyscore(conn, testkey, 7, 5) == AbstractString["g", "f", "e"]
     @test zrevrangebyscore(conn, testkey, "(6", "(5") == AbstractString[]
-    @test zrevrank(conn, testkey, "e") == Nullable(5)
+    @test zrevrank(conn, testkey, "e") == 5
     @test isnull(zrevrank(conn, "ordered_set", "non_existent_member"))
-    @test Redis.zscore(conn, testkey, "e") == Nullable("5")
+    @test Redis.zscore(conn, testkey, "e") == "5"
     @test isnull(Redis.zscore(conn, "ordered_set", "non_existent_member"))
     del(conn, testkey)
 
@@ -342,18 +342,24 @@ end
     end
     @testset "sets" begin
         sadd(conn, testkey, Set([s1, s2, s3]))
-        @test sscan(conn, testkey, 0) == ('0', Set([s1, s2, s3]))
+        result = sscan(conn, testkey, 0)
+        @test  result[1] == "0"
+        @test issubset(result[2], [s1, s2, s3])
         del(conn, testkey)
     end
     @testset "ordered sets" begin
         zadd(conn, testkey, (1, s1), (2, s2), (3, s3))
-        @test zscan(conn, testkey, 0) == ('0', OrderedSet([s1, "1", s2, "2", s3, "3"]))
+        result = zscan(conn, testkey, 0)
+        @test  result[1] == "0" 
+        @test result[2] == [s1, "1", s2, "2", s3, "3"]
         del(conn, testkey)
     end
 
     @testset "hashes" begin
         hmset(conn, testkey, Dict("f1"=>s1, "f2"=>s2, "f3"=>s3))
-        @test hscan(conn, testkey, 0) == ('0', Dict{AbstractString,AbstractString}("f1"=>s1,"f2"=>s2,"f3"=>s3))
+        result = hscan(conn, testkey, 0)
+        @test result[1] == "0"
+        @test result[2] == ["f1", s1, "f2", s2, "f3", s3]
         del(conn, testkey)
     end
 end
@@ -365,11 +371,11 @@ end
         set(conn, testkey3, s3)
         ks = KeyScanner(conn, "*", 1)
         @test issubset(next!(ks), [testkey, testkey2, testkey3])
-        @test Set(collect(ks)) == Set([testkey, testkey2, testkey3])
+        @test Set(collect(ks)) ==  Set([testkey, testkey2, testkey3])
         arr = Vector{AbstractString}()
         collectAsync!(ks, arr)
         sleep(1)
-        @test Set(arr) == Set([testkey, testkey2, testkey3])
+        @test Set(collect(arr)) == Set([testkey, testkey2, testkey3])
         del(conn, testkey, testkey2, testkey3)
     end
     @testset "sets" begin
@@ -398,12 +404,13 @@ end
         dict = Dict("f1"=>s1, "f2"=>s2, "f3"=>s3)
         hmset(conn, testkey, dict)
         ks = HashScanner(conn, testkey, "*", 1)
-        @test issubset(Set(next!(ks)), Set(dict))
-        @test collect(ks) == dict
-        dict2 = Dict{AbstractString, AbstractString}()
-        collectAsync!(ks, dict2)
+        dictarry =  ["f1", s1, "f2", s2, "f3", s3]
+        @test issubset(Set(next!(ks)), Set(dictarry))
+        @test Set(collect(ks)) == Set(dictarry)
+        dictarry2 =  Vector{AbstractString}()
+        collectAsync!(ks, dictarry2)
         sleep(1)
-        @test dict2 == dict
+        @test Set(dictarry) == Set(dictarry2)
         del(conn, testkey)
     end
 end

@@ -22,73 +22,35 @@ end
 
 flatten_command(command...) = vcat(map(flatten, command)...)
 
-if !haskey(ENV, "REDIS_CONVERT_REPLY") || ENV["REDIS_CONVERT_REPLY"] == "true"
-    macro redisfunction(command::AbstractString, ret_type, args...)
-        func_name = esc(Symbol(command))
-        command = lstrip(command,'_')
-        command = split(command, '_')
+macro redisfunction(command::AbstractString, args...)
+    func_name = esc(Symbol(command))
+    command = lstrip(command,'_')
+    command = split(command, '_')
 
-        if length(args) > 0
-            return quote
-                function $(func_name)(conn::SubscribableConnection, $(args...))
-                    response = do_command(conn, flatten_command($(command...), $(args...)))
-                    convert_response($ret_type, response)
-                end
-                function $(func_name)(conn::TransactionConnection, $(args...))
-                    do_command(conn, flatten_command($(command...), $(args...)))
-                end
-                function $(func_name)(conn::PipelineConnection, $(args...))
-                    pipeline_command(conn, flatten_command($(command...), $(args...)))
-                    conn.count += 1
-                end
+    if length(args) > 0
+        return quote
+            function $(func_name)(conn::RedisConnection, $(args...))
+                do_command(conn, flatten_command($(command...), $(args...)))
             end
-        else
-            return quote
-                function $(func_name)(conn::SubscribableConnection)
-                    response = do_command(conn, flatten_command($(command...)))
-                    convert_response($ret_type, response)
-                end
-                function $(func_name)(conn::TransactionConnection)
-                    do_command(conn, flatten_command($(command...)))
-                end
-                function $(func_name)(conn::PipelineConnection)
-                    pipeline_command(conn, flatten_command($(command...)))
-                    conn.count += 1
-                end
+            function $(func_name)(conn::TransactionConnection, $(args...))
+                do_command(conn, flatten_command($(command...), $(args...)))
+            end
+            function $(func_name)(conn::PipelineConnection, $(args...))
+                pipeline_command(conn, flatten_command($(command...), $(args...)))
+                conn.count += 1
             end
         end
-    end
-else
-    macro redisfunction(command::AbstractString, ret_type, args...)
-        func_name = esc(Symbol(command))
-        command = lstrip(command,'_')
-        command = split(command, '_')
-
-        if length(args) > 0
-            return quote
-                function $(func_name)(conn::RedisConnection, $(args...))
-                    do_command(conn, flatten_command($(command...), $(args...)))
-                end
-                function $(func_name)(conn::TransactionConnection, $(args...))
-                    do_command(conn, flatten_command($(command...), $(args...)))
-                end
-                function $(func_name)(conn::PipelineConnection, $(args...))
-                    pipeline_command(conn, flatten_command($(command...), $(args...)))
-                    conn.count += 1
-                end
+    else
+        return quote
+            function $(func_name)(conn::RedisConnection)
+                do_command(conn, flatten_command($(command...)))
             end
-        else
-            return quote
-                function $(func_name)(conn::RedisConnection)
-                    do_command(conn, flatten_command($(command...)))
-                end
-                function $(func_name)(conn::TransactionConnection)
-                    do_command(conn, flatten_command($(command...)))
-                end
-                function $(func_name)(conn::PipelineConnection)
-                    pipeline_command(conn, flatten_command($(command...)))
-                    conn.count += 1
-                end
+            function $(func_name)(conn::TransactionConnection)
+                do_command(conn, flatten_command($(command...)))
+            end
+            function $(func_name)(conn::PipelineConnection)
+                pipeline_command(conn, flatten_command($(command...)))
+                conn.count += 1
             end
         end
     end

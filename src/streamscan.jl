@@ -215,19 +215,19 @@ function collectAsync!(SS::StreamScanner, arr::Array{Tuple{Float64, AbstractStri
 end
 
 # Restricted to a HashScanner type
-function collectAsync!(HS::HashScanner, arr::Dict{AbstractString, AbstractString}; cb::Function=nullcb)
+function collectAsync!(HS::HashScanner, arr::Array{AbstractString, 1}; cb::Function=nullcb)
     if typeof(HS) != HashScanner
         throw(ProtocolException("inconsistent inputs: got $(typeof(HS)), should be HashScanner"))
     end
     @async begin
         HS.cursor = "0"
         # start scan at cursor="0"
-        for (key, val) in next!(HS)
-            arr[key] = val
+        for item in next!(HS)
+            push!(arr, item)
         end
         while HS.cursor != "0"
-            for (key, val) in next!(HS)
-                arr[key] = val
+            for item in next!(HS)
+                push!(arr, item)
             end
         end
         cb(arr)

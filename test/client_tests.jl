@@ -1,4 +1,4 @@
-import Redis: flatten, flatten_command, convert_response
+import Redis: flatten, flatten_command
 
 @testset "Flatten" begin
     @test flatten("simple") == "simple"
@@ -16,13 +16,4 @@ end
 @testset "Commands" begin
     result = flatten_command(1, 2, ["4", "5", 6.7], 8)
     @test result == ["1", "2", "4", "5", "6.7", "8"]
-end
-
-@testset "Convert" begin
-    @test convert_response(Dict{AbstractString, AbstractString}, ["1","2","3","4"]) == Dict("1" => "2", "3" => "4")
-    @test convert_response(Dict{AbstractString, AbstractString}, []) == Dict()
-    @test_approx_eq convert_response(Float64, "12.3") 12.3
-    @test_approx_eq convert_response(Float64, 10) 10.0
-    @test convert_response(Bool, 1)
-    @test !convert_response(Bool, 0)
 end
