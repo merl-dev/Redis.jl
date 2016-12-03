@@ -331,12 +331,10 @@ end
         set(conn, testkey, s1)
         set(conn, testkey2, s2)
         set(conn, testkey3, s3)
-        #@test scan(conn, 0) == ("0", Any[testkey, testkey2, testkey3])
         response = scan(conn, 0)
         @test response[1] == "0" # cursor should indicate no more items available
         @test issubset(response[2], Any[testkey, testkey2, testkey3])
         response = scan(conn, 0, "MATCH", testkey[1:3]*"*", "COUNT", 1)
-        @test response[1] == "0"    # cursor should indicate more items available
         @test issubset(response[2], Set([testkey, testkey2, testkey3]))
         del(conn, testkey, testkey2, testkey3)
     end
@@ -448,17 +446,26 @@ end
 #@test evalscript(conn, "return {1, 2, 3.3333, 'foo', nil, 'bar'}",  0, []) == [1, 2, 3, "foo"]
 end
 
-# @testset "Transactions" begin
-#     trans = open_transaction(conn)
-#     @test set(trans, testkey, "foobar") == "QUEUED"
-#     @test get(trans, testkey) == "QUEUED"
-#     @test exec(trans) == ["OK", "foobar"]
-#     @test del(trans, testkey) == "QUEUED"
-#     @test exec(trans) == [true]
-#     disconnect(trans)
-# end
+@testset "Transaction" begin
+    # using existing connection
+    @test multi(conn) == "OK"
+    @test set(conn, "a", "a") == "QUEUED"
+    @test zadd(conn, "zs", 1.0, "a") == "QUEUED"
+    @test get(conn, "a") == "QUEUED"
+    @test exec(conn) == ["OK", 1, "a"]
+    @test_throws ErrorException exec(conn) # connection is no longer in multi state
 
-@testset "Pipelines" begin
+    # using TransactionConnection
+    trans = open_transaction(conn)
+    @test set(trans, testkey, "foobar") == "QUEUED"
+    @test get(trans, testkey) == "QUEUED"
+    @test exec_transaction(trans) == ["OK", "foobar"]
+    @test del(trans, testkey) == "QUEUED"
+    @test exec_transaction(trans) == [true]
+    disconnect(trans)
+end
+
+@testset "Pipeline" begin
     pipe = open_pipeline(conn)
     set(pipe, testkey3, "anything")
     @test length(read_pipeline(pipe)) == 1
@@ -473,20 +480,15 @@ end
     disconnect(pipe)
 end
 
-function pubSubTest(conn)
-      g(y) = print(y)
-      x = String[]
-      f(y) = begin push!(x, y); println("channel func f: ", y) end
-      h(y) = begin push!(x, y); println("channel func h: ", y) end
-      subs = SubscriptionConnection(parent=conn)
-      subscribe(subs, "channel", f)
-      subscribe(subs, "duplicate", h)
-      subs, x
-end   
-
 @testset "Pub/Sub" begin
-    subs, x = pubSubTest(conn)
-    clients = client_list(subs.parent)
+    g(y) = print(y)
+    x = String[]
+    f(y) = begin push!(x, y); println("channel func f: ", y) end
+    h(y) = begin push!(x, y); println("channel func h: ", y) end
+    subs = SubscriptionConnection(parent=conn)
+    s1 = subscribe(subs, "channel", f)
+    s2 = subscribe(subs, "duplicate", h)
+    clients = client_list(subs.parent, asdict=true)
     @test length(clients) == 2
     # one client should have 2 subscriptions  
     @test (clients[1]["sub"] == "2" || clients[2]["sub"] == "2")
@@ -503,39 +505,78 @@ end
     disconnect(subs)
 end
 
-# some tests removed, were causing travis failure
 @testset "Sundry" begin
-    #@test bgrewriteaof(conn) == "Background append only file rewriting started"
-    #sleep(3)
-    #@test bgsave(conn) == "Background saving started"
-    @test typeof(command(conn)) == Array{Any, 1}
-    @test typeof(dbsize(conn)) == Int64
     @test Redis.echo(conn, "astringtoecho") == "astringtoecho"
     @test Redis.ping(conn) == "PONG"
     @test flushall(conn) == "OK"
     @test flushdb(conn) == "OK"
+end
+
+@testset "Cmds & Info" begin
+    @test typeof(command(conn)) == Array{Any, 1}
+    @test typeof(dbsize(conn)) == Int64
+
     redisinfo = split(Redis.info(conn), "\r\n")
     # select a few items that should appear in result
     @test issubset(["# Server", "# CPU", "# Cluster", "# Keyspace"], redisinfo)
+
     redisinfo = split(Redis.info(conn, "memory"), "\r\n")
     # select a few items that should appear in result
     @test issubset(["# Memory"], redisinfo)
-    @test typeof(Dates.unix2datetime(lastsave(conn))) == DateTime
     @test role(conn)  == ["master", 0, Any[]]
-    #@test Redis.save(conn) == "OK"
     @test Redis.slaveof(conn, "localhost", 6379) == "OK"
     @test slaveof(conn, "no", "one") == "OK"
+
+    @test typeof(Redis.time(conn)) == DateTime 
+end
+
+@testset "Save" begin
+    #@test bgrewriteaof(conn) == "Background append only file rewriting started"
+    #sleep(3)
+    #@test bgsave(conn) == "Background saving started"
+    #@test Redis.save(conn) == "OK"
+    @test typeof(Dates.unix2datetime(lastsave(conn))) == DateTime
+end
+
+@testset "Client" begin
     @test client_setname(conn, "aClientName") == "OK"
     @test client_getname(conn) == "aClientName"
-    @test typeof(Redis.time(conn)) == DateTime 
     begin 
         tic()
         client_pause(conn, 2000)
         client_getname(conn) == "aClientName"
-        @test toc() > 2
+        @test toq() > 2
     end
-    
-
+    clients = client_list(conn, asdict=true)
+    @test typeof(clients) == Array{Dict{AbstractString,Any},1}
+    # test a few items
+    @test issubset(["addr", "psub", "age", "events", "name", "id"], keys(clients[1]))  
 end
+
+@testset "Config" begin 
+    result = config_get(conn, "*")
+    # select a few items that should appear in result
+    @test issubset(["dbfilename", "requirepass", "masterauth"], result)
+    oldconfig = config_get(conn,"save")[2]
+    newsave = "900 1 100 10 60 10000"
+    @test config_set(conn, "save", newsave) == "OK"
+    @test config_get(conn, "save") == ["save", newsave]
+    @test config_rewrite(conn) == "OK"
+    lines  = readlines(Redis.info(conn, "server", asdict=true)["config_file"])
+    @test findfirst(lines, "save 100 10\n") > 0
+    config_set(conn, "save", oldconfig)
+    config_rewrite(conn) == "OK"
+    
+    # test a few reset stats
+    before_reset = Redis.info(conn, "stats", asdict=true)
+    @test typeof(before_reset) == Dict{AbstractString, AbstractString}
+    @test parse(Int, before_reset["keyspace_hits"]) > 0
+    @test parse(Int, before_reset["total_commands_processed"]) > 0
+    @test config_resetstat(conn) == "OK"
+    after_reset = Redis.info(conn, "stats", asdict=true)
+    @test parse(Int, after_reset["keyspace_hits"]) == 0
+    @test parse(Int, after_reset["total_commands_processed"]) == 1
+end
+
 
 disconnect(conn)

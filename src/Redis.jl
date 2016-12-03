@@ -17,7 +17,7 @@ import Base.get, Base.keys, Base.time, DataStructures.OrderedSet
 export RedisException, ConnectionException, ServerException, ProtocolException, ClientException
 export RedisConnection, SentinelConnection, TransactionConnection, SubscriptionConnection,
        disconnect, isConnected, open_transaction, reset_transaction, open_subscription,
-       open_pipeline, read_pipeline
+       open_pipeline, pipeline_command, read_pipeline, do_command
 export RedisContext, RedisReply, RedisReader
 # Key commands
 export del, dump, exists, expire, expireat, keys,

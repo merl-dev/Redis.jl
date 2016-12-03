@@ -202,21 +202,26 @@ end
 @redisfunction "quit"
 @redisfunction "select" index
 
-function client_list(conn::RedisConnectionBase)
-    clients = split(Redis.do_command(conn, "client list"), "\n")
-    results = Array{Dict{AbstractString, Any},1}()
-    for client in clients
-        if length(client) > 0
-            resulti = Dict{AbstractString, Any}()
-            splits = split(client, " ")
-            for asplit in splits
-                kv = split(asplit, "=")
-                resulti[kv[1]] = kv[2]
+function client_list(conn::RedisConnectionBase; asdict=false)
+    clients = Redis.do_command(conn, "client list")
+    if asdict
+        clientsarry = split(clients, "\n")
+        results = Array{Dict{AbstractString, Any},1}()
+        for client in clientsarry
+            if length(client) > 0
+                resulti = Dict{AbstractString, Any}()
+                splits = split(client, " ")
+                for asplit in splits
+                    kv = split(asplit, "=")
+                    resulti[kv[1]] = kv[2]
+                end
+                push!(results, resulti)
             end
-            push!(results, resulti)
         end
+        return results
+    else
+        return clients
     end
-    results
 end
 
 client_getname(conn::RedisConnectionBase) = do_command(conn, "client getname")
@@ -254,8 +259,6 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "command_count"
 @redisfunction "command_info" command commands...
 @redisfunction "config_get" parameter
-@redisfunction "config_resetstat"
-@redisfunction "config_rewrite"
 @redisfunction "config_set" parameter value
 @redisfunction "dbsize"
 @redisfunction "debug_object"  key
@@ -263,13 +266,38 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "flushall" 
 @redisfunction "flushdb" 
 
-# TODO: write methods formatting response
-@redisfunction "info" 
-@redisfunction "info" section
+function info(conn::RedisConnectionBase; asdict=false)
+    response = do_command(conn, "info")
+    _info(response, asdict)
+end
+
+function info(conn::RedisConnectionBase, section; asdict=false)
+    response = do_command(conn, "info $section")
+    _info(response, asdict)
+end
+
+function _info(response, asdict)
+    if asdict
+        resarry = split(response, "\r\n")
+        results = Dict{AbstractString, AbstractString}()
+        for result in resarry
+            if length(result) > 0 && !contains(result, "#")
+                kv = split(result, ":")
+                results[kv[1]] = kv[2]
+            end
+        end
+        return results
+    else
+        return response
+    end    
+end    
+
+config_resetstat(conn::RedisConnectionBase) = do_command(conn, "config resetstat")
+
+config_rewrite(conn::RedisConnectionBase) = do_command(conn, "config rewrite")
 
 # TODO convert unix time stamp to DateTime
 @redisfunction "lastsave"
-
 @redisfunction "role"
 @redisfunction "save" 
 @redisfunction "slaveof" host port
