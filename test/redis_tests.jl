@@ -24,6 +24,9 @@ const REDIS_EXPIRED_KEY =  -2
     @test Redis.exists(conn, testkey) == 1
     @test keys(conn, testkey) == [testkey]
     @test del(conn, testkey, "notakey", "notakey2") == 1  # only 1 of 3 key exists
+    set(conn, testkey, s1)
+    set(conn, testkey2, s2)
+    @test unlink(conn, testkey, testkey2) == 2
 
     # 'NIL'
     @test isnull(get(conn, "notakey"))
@@ -505,24 +508,40 @@ end
     disconnect(subs)
 end
 
+# need to have running instance of sentinel first
+@testset "Sentinel" begin
+    sconn = SentinelConnection()
+end
+
 @testset "Sundry" begin
     @test Redis.echo(conn, "astringtoecho") == "astringtoecho"
     @test Redis.ping(conn) == "PONG"
     @test flushall(conn) == "OK"
     @test flushdb(conn) == "OK"
+    zadd(conn, testkey, 1.0, "abcd")
+    dbgobj = debug_object(conn, testkey, asdict=true)
+    @test haskey(dbgobj, "encoding") && dbgobj["encoding"] == "ziplist"
+    @test haskey(dbgobj, "serializedlength")
+    @test object(conn, "refcount", testkey) == parse(Int, dbgobj["refcount"])
+    @test object(conn, "encoding", testkey) == dbgobj["encoding"]
+    sleep(3)
+    idle = object(conn, "idletime", testkey)
+    @test idle > 0
+    @test Redis.touch(conn, testkey) == 1
+    @test object(conn, "idletime", testkey) < idle
 end
 
 @testset "Cmds & Info" begin
     @test typeof(command(conn)) == Array{Any, 1}
     @test typeof(dbsize(conn)) == Int64
 
-    redisinfo = split(Redis.info(conn), "\r\n")
+    redisinfo = Redis.info(conn, asdict=true)
     # select a few items that should appear in result
-    @test issubset(["# Server", "# CPU", "# Cluster", "# Keyspace"], redisinfo)
+    @test issubset(["os", "executable", "process_id", "sync_full"], keys(redisinfo))
 
-    redisinfo = split(Redis.info(conn, "memory"), "\r\n")
+    redisinfo = Redis.info(conn, "memory", asdict=true)
     # select a few items that should appear in result
-    @test issubset(["# Memory"], redisinfo)
+    @test issubset(["used_memory_overhead", "maxmemory", "used_memory"], keys(redisinfo))
     @test role(conn)  == ["master", 0, Any[]]
     @test Redis.slaveof(conn, "localhost", 6379) == "OK"
     @test slaveof(conn, "no", "one") == "OK"

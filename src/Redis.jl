@@ -12,7 +12,7 @@ abstract SubscribableConnection <: RedisConnectionBase
 
 using Base.Dates
 
-import Base.get, Base.keys, Base.time, DataStructures.OrderedSet
+import Base.convert, Base.get, Base.keys, Base.time, DataStructures.OrderedSet
 
 export RedisException, ConnectionException, ServerException, ProtocolException, ClientException
 export RedisConnection, SentinelConnection, TransactionConnection, SubscriptionConnection,
@@ -23,7 +23,7 @@ export RedisContext, RedisReply, RedisReader
 export del, dump, exists, expire, expireat, keys,
        migrate, move, persist, pexpire, pexpireat,
        pttl, randomkey, rename, renamenx, restore,
-       scan, sort, ttl, keytype
+       scan, sort, ttl, keytype, touch, unlink
 # String commands
 export append, bitcount, bitop, bitpos, decr, decrby,
        get, getbit, getrange, getset, incr, incrby,
@@ -60,7 +60,7 @@ export subscribe, publish, psubscribe, punsubscribe, unsubscribe, pubsub
 # Server commands (`info` command not exported due to conflicts with other packages)
 export bgrewriteaof, bgsave, client_list, client_pause, client_getname, client_setname, 
        client_reply, cluster_slots, command, command_count, command_info, config_get, 
-       config_resetstat, config_rewrite, config_set, dbsize, debug_object, debug_segfault,
+       config_resetstat, config_rewrite, config_set, dbsize, debug_object, object,
        flushall, flushdb, lastsave, role, save, shutdown, slaveof, time
 # Sentinel commands
 export sentinel_masters, sentinel_master, sentinel_slaves, sentinel_getmasteraddrbyname,
@@ -74,6 +74,19 @@ export REDIS_PERSISTENT_KEY, REDIS_EXPIRED_KEY
 
 "define a default callback that does nothing"
 nullcb(args) = nothing
+
+"""
+        convert(::Type{Dict{String, String}}, strvec::Vector{Any})
+
+Helper converts redis reply vectors to `Dict`
+"""
+function convert(::Type{Dict{String, String}}, strvec::Vector{Any})
+    resulti = Dict{String, String}()
+    for i in 1:2:length(strvec)
+        resulti[strvec[i]] = strvec[i+1]
+    end
+    resulti
+end
 
 include("libhiredis.jl")
 include("exceptions.jl")

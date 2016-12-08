@@ -114,7 +114,7 @@ multi(trans) # Throws a ServerException
 
 Notice the subtle difference from the previous example; after calling `exec`, the `TransactionConnection` is placed into another `MULTI` block rather than returning to a 'normal' state as the `RedisConnection` does.
 
-## Pub/sub (NEEDS REWRITE)
+## Pub/Sub (NEEDS REWRITE)
 
 Redis.jl provides full support for Redis pub/sub. Publishing is accomplished by using the command as normal:
 

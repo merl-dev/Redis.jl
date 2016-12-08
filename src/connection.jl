@@ -55,6 +55,18 @@ Test connection status.
 """
 isConnected(conn::RedisConnectionBase) = _isConnected(conn.context)
 
+"""
+    on_connect(conn:RedisConnectionBase)
+
+Upon connection requests authentication form the Redis server and selects
+the approproate db.
+
+# Arguments
+* `conn` : a `RedisConnection`
+* `auth` : an optional password
+* `db`   : an optional db 
+
+"""
 function on_connect(conn::RedisConnectionBase)
     conn.password != "" && auth(conn, conn.password)
     conn.db != 0        && select(conn, conn.db)
@@ -71,6 +83,4 @@ Submitting another command with a closed connection will call `restart` on that 
 """
 disconnect(conn::RedisConnectionBase) = ccall((:redisFree, "libhiredis"), Void, (Ptr{RedisContext},), conn.context)
 
-# refac so that `restart` uses only the fields of the given `conn` parameter, otherwise throws error.  That's implied
-# by the 're' in restart.
 restart(conn::RedisConnection) = RedisConnection(host=conn.host, port=conn.port, password=conn.password, db=conn.db)

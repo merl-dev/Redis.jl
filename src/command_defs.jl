@@ -9,6 +9,8 @@ end
 
 # Key commands
 @redisfunction "del" key...
+@redisfunction "unlink" key...
+@redisfunction "touch" key... 
 @redisfunction "dump" key
 @redisfunction "exists" key
 @redisfunction "expire" key seconds
@@ -205,13 +207,11 @@ end
 function client_list(conn::RedisConnectionBase; asdict=false)
     clients = Redis.do_command(conn, "client list")
     if asdict
-        clientsarry = split(clients, "\n")
         results = Array{Dict{AbstractString, Any},1}()
-        for client in clientsarry
+        for client in split(clients, "\n")
             if length(client) > 0
                 resulti = Dict{AbstractString, Any}()
-                splits = split(client, " ")
-                for asplit in splits
+                for asplit in split(client, " ")
                     kv = split(asplit, "=")
                     resulti[kv[1]] = kv[2]
                 end
@@ -228,7 +228,7 @@ client_getname(conn::RedisConnectionBase) = do_command(conn, "client getname")
 
 # Transaction commands
 @redisfunction "discard"
-@redisfunction "exec" # only one element ever in this array?
+@redisfunction "exec" 
 @redisfunction "multi"
 @redisfunction "unwatch"
 @redisfunction "watch" key keys...
@@ -261,35 +261,45 @@ evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(con
 @redisfunction "config_get" parameter
 @redisfunction "config_set" parameter value
 @redisfunction "dbsize"
-@redisfunction "debug_object"  key
-@redisfunction "debug_segfault"
+#@redisfunction "debug_segfault"
 @redisfunction "flushall" 
 @redisfunction "flushdb" 
+@redisfunction "object" suncommand args...
+
+function debug_object(conn::RedisConnectionBase, key; asdict=true)
+    response = do_command(conn, "debug object $key")
+    if asdict
+        results = Dict{AbstractString, AbstractString}()
+        for result in split(response, " ")[2:end]
+            kv = split(result, ":")
+            k = kv[1] == "at" ? "Value at" : kv[1]
+            results[k] = kv[2]
+        end
+        results
+    else
+        response
+    end
+end
 
 function info(conn::RedisConnectionBase; asdict=false)
     response = do_command(conn, "info")
-    _info(response, asdict)
+    asdict ? _info(response) : response
 end
 
 function info(conn::RedisConnectionBase, section; asdict=false)
     response = do_command(conn, "info $section")
-    _info(response, asdict)
+    asdict ? _info(response) : response
 end
 
-function _info(response, asdict)
-    if asdict
-        resarry = split(response, "\r\n")
-        results = Dict{AbstractString, AbstractString}()
-        for result in resarry
-            if length(result) > 0 && !contains(result, "#")
-                kv = split(result, ":")
-                results[kv[1]] = kv[2]
-            end
+function _info(response)
+    results = Dict{AbstractString, AbstractString}()
+    for result in split(response, "\r\n")
+        if length(result) > 0 && !contains(result, "#")
+            kv = split(result, ":")
+            results[kv[1]] = kv[2]
         end
-        return results
-    else
-        return response
-    end    
+    end
+    results
 end    
 
 config_resetstat(conn::RedisConnectionBase) = do_command(conn, "config resetstat")
