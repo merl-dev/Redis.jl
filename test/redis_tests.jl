@@ -509,9 +509,9 @@ end
 end
 
 # need to have running instance of sentinel first
-@testset "Sentinel" begin
-    sconn = SentinelConnection()
-end
+# @testset "Sentinel" begin
+#     sconn = SentinelConnection()
+# end
 
 @testset "Sundry" begin
     @test Redis.echo(conn, "astringtoecho") == "astringtoecho"
