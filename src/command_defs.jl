@@ -1,5 +1,3 @@
-const EXEC = ["exec"]
-
 baremodule Aggregate
     const NotSet = ""
     const Sum = "sum"
@@ -8,164 +6,138 @@ baremodule Aggregate
 end
 
 # Key commands
-@redisfunction "del" Integer key...
-@redisfunction "dump" AbstractString key
-@redisfunction "exists" Bool key
-@redisfunction "expire" Bool key seconds
-@redisfunction "expireat" Bool key timestamp
+@redisfunction "del" parse_int_reply key...
+@redisfunction "unlink" parse_int_reply key...
+@redisfunction "touch" parse_int_reply key...
+@redisfunction "dump" parse_string_reply key
+@redisfunction "exists" parse_int_reply key
+@redisfunction "expire" parse_int_reply key seconds
+@redisfunction "expireat" parse_int_reply key timestamp
+@redisfunction "keys" parse_array_reply pattern
+@redisfunction "get" parse_nullable_str_reply key
+@redisfunction "set" parse_string_reply key value options...
+@redisfunction "migrate" parse_string_reply host port key destinationdb timeout
+@redisfunction "move" parse_int_reply key db
+@redisfunction "persist" parse_int_reply key
+@redisfunction "pexpire" parse_int_reply key milliseconds
+@redisfunction "pexpireat" parse_int_reply key millisecondstimestamp
+@redisfunction "pttl" parse_int_reply key
+@redisfunction "randomkey" parse_nullable_str_reply
+@redisfunction "rename" parse_string_reply key newkey
+@redisfunction "renamenx" parse_int_reply key newkey
+@redisfunction "restore" parse_string_reply key ttl serializedvalue
+@redisfunction "scan" parse_array_reply cursor options...
+@redisfunction "sort" parse_array_reply key options...
+@redisfunction "ttl" parse_int_reply key
 
-# CAUTION:  this command will block until all keys have been returned
-@redisfunction "keys" Set{AbstractString} pattern
-
-@redisfunction "migrate" Bool host port key destinationdb timeout
-@redisfunction "move" Bool key db
-@redisfunction "persist" Bool key
-@redisfunction "pexpire" Bool key milliseconds
-@redisfunction "pexpireat" Bool key millisecondstimestamp
-@redisfunction "pttl" Integer key
-@redisfunction "randomkey" Nullable{AbstractString}
-@redisfunction "rename" AbstractString key newkey
-@redisfunction "renamenx" Bool key newkey
-@redisfunction "restore" Bool key ttl serializedvalue
-@redisfunction "scan" Array{Any, 1} cursor::Integer options...
-@redisfunction "sort" Array{AbstractString, 1} key options...
-@redisfunction "ttl" Integer key
-function Base.keytype(conn::RedisConnection, key)
-    response = do_command(conn, flatten_command("type", key))
-    #convert_response(AbstractString, response)
-end
-function Base.keytype(conn::TransactionConnection, key)
-    do_command(conn, flatten_command("type", key))
+function Base.keytype(conn::RedisConnectionBase, key)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    reply = redis_command(conn, string("type", " ", key))
+    r = unsafe_load(reply)
+    s = parse_string_reply(r)
+    free_reply_object(reply)
+    return s
 end
 
 # String commands
-@redisfunction "append" Integer key value
-@redisfunction "bitcount" Integer key options...
-@redisfunction "bitop" Integer operation destkey key keys...
-@redisfunction "bitpos" Integer key bit options...
-@redisfunction "decr" Integer key
-@redisfunction "decrby" Integer key decrement
-@redisfunction "get" Nullable{AbstractString} key
-@redisfunction "getbit" Integer key offset
-@redisfunction "getrange" AbstractString key start finish
-@redisfunction "getset" AbstractString key value
-@redisfunction "incr" Integer key
-@redisfunction "incrby" Integer key increment::Integer
-
-# Bulk string reply: the value of key after the increment,
-# as per http://redis.io/commands/incrbyfloat
-@redisfunction "incrbyfloat" AbstractString key increment::Float64
-@redisfunction "mget" Array{Nullable{AbstractString}, 1} key keys...
-@redisfunction "mset" Bool keyvalues
-@redisfunction "msetnx" Bool keyvalues
-@redisfunction "psetex" AbstractString key milliseconds value
-@redisfunction "set" AbstractString key value options...
-@redisfunction "setbit" Integer key offset value
-@redisfunction "setex" AbstractString key seconds value
-@redisfunction "setnx" AbstractString key value
-@redisfunction "setrange" Integer key offset value
-@redisfunction "strlen" Integer key
+@redisfunction "append" parse_int_reply key value
+@redisfunction "bitcount" parse_int_reply key options...
+@redisfunction "bitop" parse_int_reply operation destkey key keys...
+@redisfunction "bitpos" parse_int_reply key bit options...
+@redisfunction "decr" parse_int_reply key
+@redisfunction "decrby" parse_int_reply key decrement
+@redisfunction "getbit" parse_int_reply key offset
+@redisfunction "getrange" parse_nullable_str_reply key start finish
+@redisfunction "getset" parse_nullable_str_reply key value
+@redisfunction "incr" parse_int_reply key
+@redisfunction "incrby" parse_int_reply key increment::Integer
+@redisfunction "incrbyfloat" parse_nullable_str_reply key increment::Float64
+@redisfunction "mget" parse_array_reply key keys...
+@redisfunction "mset" parse_string_reply keyvalues
+@redisfunction "msetnx" parse_int_reply keyvalues
+@redisfunction "psetex" parse_string_reply key milliseconds value
+@redisfunction "setbit" parse_int_reply key offset value
+@redisfunction "setex" parse_string_reply key seconds value
+@redisfunction "setnx" parse_int_reply key value
+@redisfunction "setrange" parse_int_reply key offset value
+@redisfunction "strlen" parse_int_reply key
 
 # Hash commands
-@redisfunction "hdel" Integer key field fields...
-@redisfunction "hexists" Bool key field
-@redisfunction "hget" Nullable{AbstractString} key field
-@redisfunction "hgetall" Dict{AbstractString, AbstractString} key
-@redisfunction "hincrby" Integer key field increment::Integer
-
-# Bulk string reply: the value of key after the increment,
-# as per http://redis.io/commands/hincrbyfloat
-@redisfunction "hincrbyfloat" AbstractString key field increment::Float64
-
-@redisfunction "hkeys" Array{AbstractString, 1} key
-@redisfunction "hlen" Integer key
-@redisfunction "hmget" Array{Nullable{AbstractString}, 1} key field fields...
-@redisfunction "hmset" AbstractString key value
-@redisfunction "hset" Bool key field value
-@redisfunction "hsetnx" Bool key field value
-@redisfunction "hvals" Array{AbstractString, 1} key
-@redisfunction "hscan" Tuple{AbstractString, Dict{AbstractString, AbstractString}} key cursor::Integer options...
+@redisfunction "hdel" parse_int_reply key field fields...
+@redisfunction "hexists" parse_int_reply key field
+@redisfunction "hget" parse_nullable_str_reply key field
+@redisfunction "hgetall" parse_array_reply key
+@redisfunction "hincrby" parse_int_reply key field increment::Integer
+@redisfunction "hincrbyfloat" parse_nullable_str_reply key field increment::Float64
+@redisfunction "hkeys" parse_array_reply key
+@redisfunction "hlen" parse_int_reply key
+@redisfunction "hmget" parse_array_reply key field fields...
+@redisfunction "hmset" parse_string_reply key value
+@redisfunction "hset" parse_int_reply key field value
+@redisfunction "hsetnx" parse_int_reply key field value
+@redisfunction "hvals" parse_array_reply key
+@redisfunction "hscan" parse_array_reply key cursor options...
 
 # List commands
-@redisfunction "blpop" Array{AbstractString, 1} keys timeout
-@redisfunction "brpop" Array{AbstractString, 1} keys timeout
-@redisfunction "brpoplpush" AbstractString source destination timeout
-@redisfunction "lindex" Nullable{AbstractString} key index
-@redisfunction "linsert" Integer key place pivot value
-@redisfunction "llen" Integer key
-@redisfunction "lpop" Nullable{AbstractString} key
-@redisfunction "lpush" Integer key value values...
-@redisfunction "lpushx" Integer key value
-@redisfunction "lrange" Array{AbstractString, 1} key start finish
-@redisfunction "lrem" Integer key count value
-@redisfunction "lset" AbstractString key index value
-@redisfunction "ltrim" AbstractString key start finish
-@redisfunction "rpop" Nullable{AbstractString} key
-@redisfunction "rpoplpush" Nullable{AbstractString} source destination
-@redisfunction "rpush" Integer key value values...
-@redisfunction "rpushx" Integer key value
+@redisfunction "blpop" parse_array_reply keys timeout
+@redisfunction "brpop" parse_array_reply keys timeout
+@redisfunction "brpoplpush" parse_nullable_str_reply source destination timeout
+@redisfunction "lindex" parse_nullable_str_reply key index
+@redisfunction "linsert" parse_int_reply key place pivot value
+@redisfunction "llen" parse_int_reply key
+@redisfunction "lpop" parse_nullable_str_reply key
+@redisfunction "lpush" parse_int_reply key value values...
+@redisfunction "lpushx" parse_int_reply key value
+@redisfunction "lrange" parse_array_reply key start finish
+@redisfunction "lrem" parse_int_reply key count value
+@redisfunction "lset" parse_string_reply key index value
+@redisfunction "ltrim" parse_string_reply key start finish
+@redisfunction "rpop" parse_nullable_str_reply key
+@redisfunction "rpoplpush" parse_nullable_str_reply source destination
+@redisfunction "rpush" parse_int_reply key value values...
+@redisfunction "rpushx" parse_int_reply key value
 
 # Set commands
-@redisfunction "sadd" Integer key member members...
-@redisfunction "scard" Integer key
-@redisfunction "sdiff" Set{AbstractString} key keys...
-@redisfunction "sdiffstore" Integer destination key keys...
-@redisfunction "sinter" Set{AbstractString} key keys...
-@redisfunction "sinterstore" Integer destination key keys...
-@redisfunction "sismember" Bool key member
+@redisfunction "sadd" parse_int_reply key member members...
+@redisfunction "scard" parse_int_reply key
+@redisfunction "sdiff" parse_array_reply key keys...
+@redisfunction "sdiffstore" parse_int_reply destination key keys...
+@redisfunction "sinter" parse_array_reply key keys...
+@redisfunction "sinterstore" parse_int_reply destination key keys...
+@redisfunction "sismember" parse_int_reply key member
+@redisfunction "smembers" parse_array_reply key
+@redisfunction "smove" parse_int_reply source destination member
+@redisfunction "spop" parse_nullable_str_reply key
+@redisfunction "srandmember" parse_nullable_str_reply key
+@redisfunction "srandmember" parse_array_reply key count
+@redisfunction "srem" parse_int_reply key member members...
+@redisfunction "sunion" parse_array_reply key keys...
+@redisfunction "sunionstore" parse_int_reply destination key keys...
+@redisfunction "sscan" parse_array_reply key cursor options...
 
-@redisfunction "smembers" Set{AbstractString} key
-@redisfunction "smove" Bool source destination member
-@redisfunction "spop" Nullable{AbstractString} key
-@redisfunction "srandmember" Nullable{AbstractString} key
-@redisfunction "srandmember" Set{AbstractString} key count
-@redisfunction "srem" Integer key member members...
-@redisfunction "sunion" Set{AbstractString} key keys...
-@redisfunction "sunionstore" Integer destination key keys...
-@redisfunction "sscan" Tuple{AbstractString, Set{AbstractString}} key cursor::Integer options...
+@redisfunction "zadd" parse_int_reply key score::Number member::AbstractString
+@redisfunction "zadd" parse_int_reply key scorememberdict
+@redisfunction "zadd" parse_int_reply key scoremembertup scorememberstup...
 
-# Sorted set commands
-#=
-merl-dev: a number of methods were added to take AbstractString for score value
-to enable score ranges like '(1 2,' or "-inf", "+inf",
-as per docs http://redis.io/commands/zrangebyscore
-=#
-
-@redisfunction "zadd" Integer key score::Number member::AbstractString
-
-# NOTE:  using ZADD with Dicts could introduce bugs if some scores are identical
-@redisfunction "zadd" Integer key scorememberdict
-
-#=
-This following version of ZADD enables adding new members using `Tuple{Int64, AbstractString}` or
-`Tuple{Float64, AbstractString}` for single or multiple additions to the sorted set without
-resorting to the use of `Dict`, which cannot be used in the case where all entries have the same score.
-=#
-@redisfunction "zadd" Integer key scoremembertup scorememberstup...
-
-@redisfunction "zcard" Integer key
-@redisfunction "zcount" Integer key min max
-
-# Bulk string reply: the new score of member (a double precision floating point number),
-# represented as string, as per http://redis.io/commands/zincrby
-@redisfunction "zincrby" AbstractString key increment member
-
-@redisfunction "zlexcount" Integer key min max
-@redisfunction "zrange" Vector{AbstractString} key start finish options...
-@redisfunction "zrangebylex" Vector{AbstractString} key min max options...
-@redisfunction "zrangebyscore" Vector{AbstractString} key min max options...
-@redisfunction "zrank" Nullable{Integer} key member
-@redisfunction "zrem" Integer key member members...
-@redisfunction "zremrangebylex" Integer key min max
-@redisfunction "zremrangebyrank" Integer key start finish
-@redisfunction "zremrangebyscore" Integer key start finish
-@redisfunction "zrevrange" Vector{AbstractString} key start finish options...
-@redisfunction "zrevrangebyscore" Vector{AbstractString} key start finish options...
-@redisfunction "zrevrank" Nullable{Integer} key member
-# ZCORE returns a Bulk string reply: the score of member (a double precision floating point
-# number), represented as string.
-@redisfunction "zscore" Nullable{AbstractString} key member
-@redisfunction "zscan" Tuple{AbstractString, OrderedSet{AbstractString}} key cursor::Integer options...
+@redisfunction "zcard" parse_int_reply key
+@redisfunction "zcount" parse_int_reply key min max
+@redisfunction "zincrby" parse_nullable_str_reply key increment member
+@redisfunction "zlexcount" parse_int_reply key min max
+@redisfunction "zrange" parse_array_reply key start finish options...
+@redisfunction "zrangebylex" parse_array_reply key min max options...
+@redisfunction "zrangebyscore" parse_array_reply key min max options...
+@redisfunction "zrank" parse_nullable_int_reply key member
+@redisfunction "zrem" parse_int_reply key member members...
+@redisfunction "zremrangebylex" parse_int_reply key min max
+@redisfunction "zremrangebyrank" parse_int_reply key start finish
+@redisfunction "zremrangebyscore" parse_int_reply key start finish
+@redisfunction "zrevrange" parse_array_reply key start finish options...
+@redisfunction "zrevrangebyscore" parse_array_reply key start finish options...
+@redisfunction "zrevrank" parse_nullable_int_reply key member
+@redisfunction "zscore" parse_nullable_str_reply key member
+@redisfunction "zscan" parse_array_reply key cursor options...
 
 function _build_store_internal(destination, numkeys, keys, weights, aggregate, command)
     length(keys) > 0 || throw(ClientException("Must supply at least one key"))
@@ -182,139 +154,291 @@ function _build_store_internal(destination, numkeys, keys, weights, aggregate, c
 end
 
 # TODO: PipelineConnection and TransactionConnection
-function zinterstore(conn::RedisConnectionBase, destination, numkeys,
-    keys::Array, weights=[]; aggregate=Aggregate.NotSet)
+function zinterstore(conn::RedisConnection, destination, numkeys, keys::Array,
+            weights=[]; aggregate=Aggregate.NotSet)
     command = _build_store_internal(destination, numkeys, keys, weights, aggregate, "zinterstore")
-    do_command(conn, command)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    command_str = flatten_command(command...)
+    reply = redis_command(conn, command_str)
+    r = unsafe_load(reply)
+    s = parse_int_reply(r)
+    free_reply_object(reply)
+    return s
 end
 
-function zunionstore(conn::RedisConnectionBase, destination, numkeys::Integer,
-    keys::Array, weights=[]; aggregate=Aggregate.NotSet)
+function zunionstore(conn::RedisConnection, destination, numkeys::Integer, keys::Array,
+        weights=[]; aggregate=Aggregate.NotSet)
     command = _build_store_internal(destination, numkeys, keys, weights, aggregate, "zunionstore")
-    do_command(conn, command)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    command_str = flatten_command(command...)
+    reply = redis_command(conn, command_str)
+    r = unsafe_load(reply)
+    s = parse_int_reply(r)
+    free_reply_object(reply)
+    return s
+
 end
 
 # HyperLogLog commands
-@redisfunction "pfadd" Bool key element elements...
-@redisfunction "pfcount" Integer key keys...
-@redisfunction "pfmerge" AbstractString destkey sourcekey sourcekeys...
+@redisfunction "pfadd" parse_int_reply key element elements...
+@redisfunction "pfcount" parse_int_reply key keys...
+@redisfunction "pfmerge" parse_string_reply destkey sourcekey sourcekeys...
 
 # Connection commands
-@redisfunction "auth" AbstractString password
-@redisfunction "echo" AbstractString message
-@redisfunction "ping" AbstractString
-@redisfunction "quit" AbstractString
-@redisfunction "select" AbstractString index
+@redisfunction "auth" parse_string_reply password
+@redisfunction "echo" parse_string_reply message
+@redisfunction "ping" parse_string_reply
+@redisfunction "quit" parse_string_reply
+@redisfunction "select" parse_string_reply index
 
-function client_list(conn::RedisConnectionBase)
-    clients = split(Redis.do_command(conn, "client list"), "\n")
-    results = Array{Dict{AbstractString, Any},1}()
-    for client in clients
-        if length(client) > 0
-            resulti = Dict{AbstractString, Any}()
-            splits = split(client, " ")
-            for asplit in splits
-                kv = split(asplit, "=")
-                resulti[kv[1]] = kv[2]
+# Transaction commands require a TransactionConnection
+function multi(trans::TransactionConnection)
+    if !is_connected(trans)
+        trans = restart(trans)
+    end
+    reply = redis_command(trans, "multi")
+    r = unsafe_load(reply)
+    pr = parse_string_reply(r)
+    free_reply_object(reply)
+    pr
+end
+
+function exec(trans::TransactionConnection)
+    if !is_connected(trans)
+        trans = restart(trans)
+    end
+    reply = redis_command(trans, "exec")
+    r = unsafe_load(reply)
+    pr = parse_nullable_arr_reply(r)
+    free_reply_object(reply)
+    pr
+end
+
+function discard(trans::TransactionConnection)
+    if !is_connected(trans)
+        trans = restart(trans)
+    end
+    reply = redis_command(trans, "discard")
+    r = unsafe_load(reply)
+    pr = parse_string_reply(r)
+    free_reply_object(reply)
+    pr
+end
+
+function watch(trans::TransactionConnection, keys...)
+    if !is_connected(trans)
+        trans = restart(trans)
+    end
+    command_str = flatten_command("watch", keys...)
+    reply = redis_command(trans, command_str)
+    r = unsafe_load(reply)
+    pr = parse_string_reply(r)
+    free_reply_object(reply)
+    pr
+end
+
+function unwatch(trans::TransactionConnection)
+    if !is_connected(trans)
+        trans = restart(trans)
+    end
+    reply = redis_command(trans, "unwatch")
+    r = unsafe_load(reply)
+    pr = parse_string_reply(r)
+    free_reply_object(reply)
+    pr
+end
+
+# Scripting
+@redisfunction "evalsha" parse_nullable_str_reply sha1 numkeys keys args
+@redisfunction "script_exists" parse_array_reply script scripts...
+@redisfunction "script_flush" parse_string_reply
+@redisfunction "script_kill" parse_string_reply
+@redisfunction "script_load" parse_nullable_str_reply script
+
+# Server commands
+@redisfunction "bgrewriteaof" parse_string_reply
+@redisfunction "bgsave" parse_string_reply
+@redisfunction "client_pause" parse_string_reply timeout
+
+function client_list(conn::RedisConnectionBase; asdict=false)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    reply = redis_command(conn, "client list")
+    r = unsafe_load(reply)
+    clients = parse_nullable_str_reply(r)
+    free_reply_object(reply)
+
+    if asdict
+        results = Array{Dict{AbstractString, Any},1}()
+        for client in split(get(clients), "\n")
+            if length(client) > 0
+                resulti = Dict{AbstractString, Any}()
+                for asplit in split(client, " ")
+                    kv = split(asplit, "=")
+                    resulti[kv[1]] = kv[2]
+                end
+                push!(results, resulti)
             end
-            push!(results, resulti)
+        end
+        return results
+    else
+        return clients
+    end
+end
+@redisfunction "client_getname" parse_nullable_str_reply
+@redisfunction "client_setname" parse_string_reply name
+@redisfunction "cluster_slots" parse_array_reply
+@redisfunction "command" parse_array_reply
+@redisfunction "command_count" parse_int_reply
+@redisfunction "command_info" parse_array_reply command commands...
+#@redisfunction "config_get" parse_array_reply parameter
+function config_get(conn::RedisConnectionBase, parameter; asdict=true)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    reply = redis_command(conn, "config get $parameter")
+    r = unsafe_load(reply)
+    response = parse_array_reply(r)
+    free_reply_object(reply)
+
+    if asdict
+        results = Dict{AbstractString, AbstractString}()
+        for i = 1:2: length(response)
+            results[response[i]] = response[i+1]
+        end
+        results
+    else
+        response
+    end
+end
+@redisfunction "config_set" parse_string_reply parameter value...
+@redisfunction "config_resetstat" parse_string_reply
+@redisfunction "config_rewrite" parse_string_reply
+@redisfunction "dbsize" parse_int_reply
+#@redisfunction "debug_segfault"
+@redisfunction "flushall" parse_string_reply
+@redisfunction "flushdb" parse_string_reply
+
+function object_refcount(conn::RedisConnectionBase, key)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    reply = redis_command(conn, string("object refcount ", key))
+    r = unsafe_load(reply)
+    i = parse_nullable_int_reply(r)
+    free_reply_object(reply)
+    return i
+end
+
+function object_idletime(conn::RedisConnectionBase, key)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    reply = redis_command(conn, string("object idletime ", key))
+    r = unsafe_load(reply)
+    i = parse_nullable_int_reply(r)
+    free_reply_object(reply)
+    return i
+end
+
+function object_encoding(conn::RedisConnectionBase, key)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    reply = redis_command(conn, string("object encoding ", key))
+    r = unsafe_load(reply)
+    s = parse_nullable_str_reply(r)
+    free_reply_object(reply)
+    return s
+end
+
+function debug_object(conn::RedisConnectionBase, key; asdict=true)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    reply = redis_command(conn, string("debug object ", key))
+    r = unsafe_load(reply)
+    response = parse_string_reply(r)
+    free_reply_object(reply)
+
+    if asdict
+        results = Dict{AbstractString, AbstractString}()
+        for result in split(response, " ")[2:end]
+            kv = split(result, ":")
+            k = kv[1] == "at" ? "Value at" : kv[1]
+            results[k] = kv[2]
+        end
+        results
+    else
+        response
+    end
+end
+
+function info(conn::RedisConnectionBase; asdict=true)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    reply = redis_command(conn, "info")
+    r = unsafe_load(reply)
+    response = parse_nullable_str_reply(r)
+    free_reply_object(reply)
+
+    asdict ? _info(response) : response
+end
+
+function info(conn::RedisConnectionBase, section; asdict=true)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    reply = redis_command(conn, "info $section")
+    r = unsafe_load(reply)
+    response = parse_nullable_str_reply(r)
+    free_reply_object(reply)
+    asdict ? _info(response) : response
+end
+
+function _info(response)
+    results = Dict{AbstractString, AbstractString}()
+    for result in split(get(response), "\r\n")
+        if length(result) > 0 && !contains(result, "#")
+            kv = split(result, ":")
+            results[kv[1]] = kv[2]
         end
     end
     results
 end
 
-client_getname(conn::RedisConnectionBase) = do_command(conn, "client getname")
-
-# Transaction commands
-@redisfunction "discard" Bool
-@redisfunction "exec" Array{Bool} # only one element ever in this array?
-@redisfunction "multi" Bool
-@redisfunction "unwatch" Bool
-@redisfunction "watch" Bool key keys...
-
-# Scripting commands
-# TODO: PipelineConnection and TransactionConnection
-function evalscript{T<:AbstractString}(conn::RedisConnection, script::T, numkeys::Integer, args::Array{T, 1})
-    fc = flatten_command("eval", script, numkeys, args)
-    response = do_command(conn, flatten_command("eval", script, numkeys, args))
-    convert_eval_response(Any, response)
-end
-evalscript{T<:AbstractString}(conn::RedisConnection, script::T) = evalscript(conn, script, 0, AbstractString[])
-
-#################################################################
-# TODO: NEED TO TEST BEYOND THIS POINT
-@redisfunction "evalsha" Any sha1 numkeys keys args
-@redisfunction "script_exists" Array script scripts...
-@redisfunction "script_flush" AbstractString
-@redisfunction "script_kill" AbstractString
-@redisfunction "script_load" AbstractString script
-
-# Server commands
-@redisfunction "bgrewriteaof" AbstractString
-@redisfunction "bgsave" AbstractString
-@redisfunction "client_pause" AbstractString timeout
-@redisfunction "client_setname" AbstractString name
-@redisfunction "cluster_slots" Array{Any, 1}
-@redisfunction "command" Array{Any,1}
-@redisfunction "command_count" Integer
-@redisfunction "command_info" Array{Any, 1} command commands...
-@redisfunction "config_get" Array{Any, 1} parameter
-@redisfunction "config_resetstat" Bool
-@redisfunction "config_rewrite" Bool
-@redisfunction "config_set" Bool parameter value
-@redisfunction "dbsize" Integer
-@redisfunction "debug_object" AbstractString key
-@redisfunction "debug_segfault" Any
-@redisfunction "flushall" AbstractString
-@redisfunction "flushdb" AbstractString
-
-# TODO: write methods formatting response
-@redisfunction "info" AbstractString
-@redisfunction "info" AbstractString section
-
 # TODO convert unix time stamp to DateTime
-@redisfunction "lastsave" Integer
-
-@redisfunction "role" Array{Any,1}
-@redisfunction "save" AbstractString
-@redisfunction "slaveof" AbstractString host port
-@redisfunction "_time" Array{AbstractString, 1}
+@redisfunction "lastsave" parse_int_reply
+@redisfunction "role" parse_nullable_arr_reply
+@redisfunction "save" parse_string_reply
+@redisfunction "slaveof" parse_string_reply host port
+@redisfunction "time" parse_array_reply
 
 function shutdown(conn::RedisConnectionBase; save=true)
-    if isConnected(conn).reply != REDIS_OK
+    if !is_connected(conn)
         conn = restart(conn)
     end
     reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
         "shutdown " * ifelse(save, "save", "nosave"))
 end
 
-# Sentinel commands
-@sentinelfunction "master" Dict{AbstractString, AbstractString} mastername
-@sentinelfunction "reset" Integer pattern
-@sentinelfunction "failover" Any mastername
-@sentinelfunction "monitor" Bool name ip port quorum
-@sentinelfunction "remove" Bool name
-@sentinelfunction "set" Bool name option value
-
 # Custom commands (PubSub/Transaction)
-@redisfunction "publish" Integer channel message
-@redisfunction "pubsub" Array{Any, 1} subcommand cmds...
+@redisfunction "publish" parse_int_reply channel message
+@redisfunction "pubsub" parse_array_reply subcommand cmds...
 
-#Need a specialized version of execute to keep the connection in the transaction state
-function exec(conn::TransactionConnection)
-    response = do_command(conn, EXEC)
-    multi(conn)
-    response
-end
-
-###############################################################
-# The following Redis commands can be typecast to Julia structs
-###############################################################
-
-function time(c::RedisConnection)
-    t = _time(c)
-    s = parse(Int,t[1])
-    ms = parse(Float64, t[2])
+function Base.time(conn::RedisConnectionBase)
+    if !is_connected(conn)
+        conn = restart(conn)
+    end
+    tm = config_rewrite(conn)
+    s = parse(Int,tm[1])
+    ms = parse(Float64, tm[2])
     s += (ms / 1e6)
     return unix2datetime(s)
 end

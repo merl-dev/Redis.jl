@@ -7,23 +7,24 @@
 
 Redis.jl is a fully-featured Redis client for the Julia programming language. The implementation is an attempt at an easy to understand, minimalistic API that mirrors actual Redis commands as closely as possible.
 
-## HiRedis branch
+## WIP: Type Stable HiRedis branch
 
-Merges a debugged version of HiRedis.jl, based on the C-language hiredis interface to Redis. Thus far all basic commands pass tests without modification to the original Redis.jl API. Performance enhancements are significant, see BenchmarkNotes.md for examples.  
-
-In order to maximize performance, send string commands using `do_command`:  for example, instead of `set(conn, "akey", "avalue")`,
-use `do_command(conn, "set akey avalue")` in order to bypass command parsing.  In addition, for use cases where Redis server responses are not required immediately, use pipeline commands: `pipeline_command(conn, "set akey value")`. In certain scenarios further performance enhancements can be attained by setting the Julia `ENV` key "REDIS_CONVERT_REPLY" to `false` before `using Redis`.  This will bypass all response conversions and return the original Redis server response.
-
+    * merges a debugged version of HiRedis.jl, based on the C-language hiredis interface to Redis.
+    * fast command-string builder
+    * new parsers:
+        * `parse_string_reply` => Redis Simple Strings
+        * `parse_int_reply` => Redis Integers
+        * `parse_array_reply` => Redis Arrays
+        * `parse_nullable_str_reply` => Bulk Strings (when response may contain `nil`)
+        * `parse_nullable_int_reply` => Redis Integers (when response may contain `nil`)
+        * `parse_nullable_arr_reply` => for mixed response arrays, mostly `multi`/`exec` blocks
+    * some commands return `NullableArrays`
 
 _TODO_:
 * key-prefixing
-* ~~Pipelines~~, Transactions, Sentinels, and Pub/Sub need refactoring to pass tests
-* Add `start`, and `done` to `StreamScanners` -- not sure we need to implement an iterator interface since they aren't true iterators
-* ~~Implement the libhiredis `RedisAsyncContext` and `redisAsyncCommand` interfaces~~ not implemented, unnecessary
-* Clusters remain without commands nor tests
-* Write "REDIS_CONVERT_REPLY" test suite (basically, duplicate current test suite)
+* **Pipelines**, Sentinels, Clusters, **Scripting**, and **Pub/Sub** need refactoring to pass tests
 * create a clean benchmark suite
-* see ROADMAP.md
+* cleanup readme
 
 ## Basics
 
@@ -179,28 +180,22 @@ sentinel_masters(sentinel) # Returns an Array{Dict{String, String}} of master in
 
 ## Streaming Scanners
 
-In order to simplify use of the Redis scan commands, SCAN (keys), SSCAN (sets), ZSCAN (ordered sets), and HSCAN (hashes), a streaming interface is provided. To initialize a scan use the appropriate constructor:
+In order to simplify use of the Redis scan commands, SCAN (keys), SSCAN (sets), ZSCAN (ordered sets), and HSCAN (hashes), an julia iterator interface is provided. To initialize a scan use the appropriate constructor:
 
-`KeyScanner(conn::RedisConnection, match::AbstractString, count::Int)`
+`AllKeyScanner(conn::RedisConnection, match::AbstractString, count::Int)` : scan the redis key namesspace using redis `scan`
 
-`SetScanner(conn::RedisConnection, key::AbstractString, match::AbstractString, count::Int)`
-
-`OrderedSetScanner(conn::RedisConnection, key::AbstractString, match::AbstractString, count::Int)`
-
-`HashScanner(conn::RedisConnection, key::AbstractString, match::AbstractString, count::Int)`
+`KeyScanner(conn::RedisConnection, key::AbstractString, match::AbstractString, count::Int)` : scan a redis set, ordered set or hash using redis `sscan`. `zscan` or `hscan`
 
 `match` is used for pattern matching, and defaults to "\*",  while `count` specifies the number of items returned per iteration and defaults to 1.
 
-Three methods are provided for scanning:
-
-`next!(ss::StreamScanner, count)` retrieves `count` elements as an `Array` or `Dict`.  `count` defaults to the value
-used in the constructor, but can be modified per request. __As per the Redis spec, each call to `next!` may return one or
-more elements that were retrieved in a previous call.__
-
-`collect(ss::StreamScanner)` will keep scanning until all the elements have bee retrieved.
-
-`collectAsync!(ss::StreamScanner, coll::<Collection Type>; cb::Function==nullcb)` enables asynchronous execution of a scan
-accumulating results in a predefined collection object, with an optional callback parameter that defaults to do nothing.  The callback function should take one parameter, the result collection and do something appropriate for that collection type.
+AN example scan through the redis key namespace
+```
+ks = allkeyscanner(conn, "test*", 10)
+for k in ks
+    println(ks)
+end
+```
+TODO:   more scan iteration examples
 
 Note the following caveats from the Redis documentation at http://redis.io/commands/scan:
 
@@ -216,7 +211,7 @@ __Please refer to the Redis documentation for more details.__
 
 ### Notes
 
-Actual API usage can be found in test/redis_tests.jl.
+Actual API usage can be found in test/runtests.jl.
 
 ### Redis Commands returning 'NIL'
 
@@ -235,7 +230,7 @@ The following methods return a `Nullable{T}(value)` corresponding to a Redis 'NI
 
 #### Sets
 * `spop(conn, "empty_set")`
-* `srandmember(conn, "empty_set")`     
+* `srandmember(conn, "empty_set")`
 
 ####Sorted Sets
 * `zrank(conn, "ordered_set", "non_existent_member")`

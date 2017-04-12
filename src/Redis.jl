@@ -1,4 +1,5 @@
-#__precompile__()
+__precompile__()
+
 module Redis
 
 if isfile(joinpath(dirname(@__FILE__),"..","deps","deps.jl"))
@@ -7,23 +8,37 @@ else
     Pkg.build("Redis")
 end
 
-abstract RedisConnectionBase
-abstract SubscribableConnection <: RedisConnectionBase
+using Base.Dates, DataStructures, NullableArrays
 
-using Base.Dates
+abstract type RedisConnectionBase end
+abstract type SubscribableConnection <: RedisConnectionBase end
 
-import Base.get, Base.keys, Base.time, DataStructures.OrderedSet
+import Base: convert, get, keys, time, collect, ==, show, sort, start, done, next, eltype
 
-export RedisException, ConnectionException, ServerException, ProtocolException, ClientException
-export RedisConnection, SentinelConnection, TransactionConnection, SubscriptionConnection,
-       disconnect, isConnected, open_transaction, reset_transaction, open_subscription,
-       open_pipeline, read_pipeline
-export RedisContext, RedisReply, RedisReader
+export  RedisException,
+        ConnectionException,
+        ServerException,
+        ProtocolException,
+        ClientException,
+        RedisContext,
+        RedisReply,
+        RedisReader,
+        RedisConnection,
+        TransactionConnection,
+        disconnect,
+        is_connected,
+        redis_command,
+        parse_string_reply,
+        parse_int_reply,
+        parse_nullable_str_reply,
+        parse_nullable_int_reply,
+        parse_array_reply
+
 # Key commands
 export del, dump, exists, expire, expireat, keys,
        migrate, move, persist, pexpire, pexpireat,
        pttl, randomkey, rename, renamenx, restore,
-       scan, sort, ttl, keytype
+       scan, sort, ttl, keytype, touch, unlink
 # String commands
 export append, bitcount, bitop, bitpos, decr, decrby,
        get, getbit, getrange, getset, incr, incrby,
@@ -55,36 +70,39 @@ export auth, echo, ping, quit, select
 export discard, exec, multi, unwatch, watch
 # Scripting commands
 export evalscript, evalsha, script_exists, script_flush, script_kill, script_load
-# PubSub commands
-export subscribe, publish, psubscribe, punsubscribe, unsubscribe, pubsub
-# Server commands (`info` command not exported due to conflicts with other packages)
-export bgrewriteaof, bgsave, client_list, client_pause, client_getname, client_setname, 
-       client_reply, cluster_slots, command, command_count, command_info, config_get, 
-       config_resetstat, config_rewrite, config_set, dbsize, debug_object, debug_segfault,
-       flushall, flushdb, lastsave, role, save, shutdown, slaveof, time
-# Sentinel commands
-export sentinel_masters, sentinel_master, sentinel_slaves, sentinel_getmasteraddrbyname,
-       sentinel_reset, sentinel_failover, sentinel_monitor, sentinel_remove, sentinel_set
-# Streaming scanners
-export StreamScanner, KeyScanner, SetScanner, OrderedSetScanner, HashScanner, next!, 
-       collect, collectAsync!
-# Redis constants
-# TODO: add more, consider a separate constants.jl
-export REDIS_PERSISTENT_KEY, REDIS_EXPIRED_KEY
+# Server commands
+export bgrewriteaof, bgsave, client_list, client_pause, client_getname, client_setname,
+       client_reply, cluster_slots, command, command_count, command_info, config_get,
+       config_resetstat, config_rewrite, config_set, dbsize, debug_object, object_refcount,
+       object_idletime, object_encoding, flushall, flushdb, lastsave, role, save, shutdown,
+       slaveof, time
+# *SCAN Iterators
+export AllKeyScanner, KeyScanner, start, next, done
+
+const REDIS_ERR = -1
+const REDIS_OK = 0
 
 "define a default callback that does nothing"
 nullcb(args) = nothing
 
-include("libhiredis.jl")
+"""
+        convert(::Type{Dict{String, String}}, strvec::Vector{Any})
+
+Helper converts redis reply vectors to `Dict`
+"""
+function convert(::Type{Dict{String, String}}, strvec::Vector{Any})
+    resulti = Dict{String, String}()
+    for i in 1:2:length(strvec)
+        resulti[strvec[i]] = strvec[i+1]
+    end
+    resulti
+end
+
 include("exceptions.jl")
 include("connection.jl")
-include("async.jl")
-include("conversions.jl")
-include("sentinel.jl")
-include("pubsub.jl")
+include("transaction.jl")
 include("commands.jl")
 include("command_defs.jl")
-include("streamscan.jl")
-
+include("scaniterator.jl")
 
 end
