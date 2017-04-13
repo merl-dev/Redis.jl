@@ -32,7 +32,7 @@ end
 
 function Base.keytype(conn::RedisConnectionBase, key)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     reply = redis_command(conn, string("type", " ", key))
     r = unsafe_load(reply)
@@ -158,7 +158,7 @@ function zinterstore(conn::RedisConnection, destination, numkeys, keys::Array,
             weights=[]; aggregate=Aggregate.NotSet)
     command = _build_store_internal(destination, numkeys, keys, weights, aggregate, "zinterstore")
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     command_str = flatten_command(command...)
     reply = redis_command(conn, command_str)
@@ -172,7 +172,7 @@ function zunionstore(conn::RedisConnection, destination, numkeys::Integer, keys:
         weights=[]; aggregate=Aggregate.NotSet)
     command = _build_store_internal(destination, numkeys, keys, weights, aggregate, "zunionstore")
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     command_str = flatten_command(command...)
     reply = redis_command(conn, command_str)
@@ -198,7 +198,7 @@ end
 # Transaction commands require a TransactionConnection
 function multi(trans::TransactionConnection)
     if !is_connected(trans)
-        trans = restart(trans)
+        trans = reconnect(trans)
     end
     reply = redis_command(trans, "multi")
     r = unsafe_load(reply)
@@ -209,7 +209,7 @@ end
 
 function exec(trans::TransactionConnection)
     if !is_connected(trans)
-        trans = restart(trans)
+        trans = reconnect(trans)
     end
     reply = redis_command(trans, "exec")
     r = unsafe_load(reply)
@@ -220,7 +220,7 @@ end
 
 function discard(trans::TransactionConnection)
     if !is_connected(trans)
-        trans = restart(trans)
+        trans = reconnect(trans)
     end
     reply = redis_command(trans, "discard")
     r = unsafe_load(reply)
@@ -231,7 +231,7 @@ end
 
 function watch(trans::TransactionConnection, keys...)
     if !is_connected(trans)
-        trans = restart(trans)
+        trans = reconnect(trans)
     end
     command_str = flatten_command("watch", keys...)
     reply = redis_command(trans, command_str)
@@ -243,7 +243,7 @@ end
 
 function unwatch(trans::TransactionConnection)
     if !is_connected(trans)
-        trans = restart(trans)
+        trans = reconnect(trans)
     end
     reply = redis_command(trans, "unwatch")
     r = unsafe_load(reply)
@@ -266,7 +266,7 @@ end
 
 function client_list(conn::RedisConnectionBase; asdict=false)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     reply = redis_command(conn, "client list")
     r = unsafe_load(reply)
@@ -299,7 +299,7 @@ end
 #@redisfunction "config_get" parse_array_reply parameter
 function config_get(conn::RedisConnectionBase, parameter; asdict=true)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     reply = redis_command(conn, "config get $parameter")
     r = unsafe_load(reply)
@@ -326,7 +326,7 @@ end
 
 function object_refcount(conn::RedisConnectionBase, key)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     reply = redis_command(conn, string("object refcount ", key))
     r = unsafe_load(reply)
@@ -337,7 +337,7 @@ end
 
 function object_idletime(conn::RedisConnectionBase, key)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     reply = redis_command(conn, string("object idletime ", key))
     r = unsafe_load(reply)
@@ -348,7 +348,7 @@ end
 
 function object_encoding(conn::RedisConnectionBase, key)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     reply = redis_command(conn, string("object encoding ", key))
     r = unsafe_load(reply)
@@ -359,7 +359,7 @@ end
 
 function debug_object(conn::RedisConnectionBase, key; asdict=true)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     reply = redis_command(conn, string("debug object ", key))
     r = unsafe_load(reply)
@@ -381,7 +381,7 @@ end
 
 function info(conn::RedisConnectionBase; asdict=true)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     reply = redis_command(conn, "info")
     r = unsafe_load(reply)
@@ -393,7 +393,7 @@ end
 
 function info(conn::RedisConnectionBase, section; asdict=true)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     reply = redis_command(conn, "info $section")
     r = unsafe_load(reply)
@@ -422,7 +422,7 @@ end
 
 function shutdown(conn::RedisConnectionBase; save=true)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
         "shutdown " * ifelse(save, "save", "nosave"))
@@ -434,7 +434,7 @@ end
 
 function Base.time(conn::RedisConnectionBase)
     if !is_connected(conn)
-        conn = restart(conn)
+        conn = reconnect(conn)
     end
     tm = config_rewrite(conn)
     s = parse(Int,tm[1])

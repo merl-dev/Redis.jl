@@ -4,12 +4,12 @@
 
 # Macro to load a library
 macro checked_lib(libname, path)
-    ((VERSION >= v"0.4.0-dev+3844" ? Base.Libdl.dlopen_e : Base.dlopen_e)(path) == C_NULL) && error("Unable to load \n\n$libname ($path)\n\nPlease re-run Pkg.build(package), and restart Julia.")
+    ((VERSION >= v"0.4.0-dev+3844" ? Base.Libdl.dlopen_e : Base.dlopen_e)(path) == C_NULL) && error("Unable to load \n\n$libname ($path)\n\nPlease re-run Pkg.build(package), and reconnect Julia.")
     quote const $(esc(libname)) = $path end
 end
 
 # Load dependencies
-@checked_lib libhiredis "/usr/bin/../lib/x86_64-linux-gnu/libhiredis.so"
+@checked_lib libhiredis "/usr/lib/x86_64-linux-gnu/libhiredis.so"
 
 # Load-hooks
 

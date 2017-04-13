@@ -1,5 +1,5 @@
 using Redis, NullableArrays, Base.Dates, Base.Test, BenchmarkTools
-import DataStructures: OrderedSet, PriorityQueue
+import DataStructures: Queue, OrderedSet, PriorityQueue
 conn = RedisConnection()
 flushall(conn)
 # some random key names
@@ -410,18 +410,23 @@ end
 end
 #
 @testset "Pipeline" begin
-#     pipe = open_pipeline(conn)
-#     set(pipe, testkey3, "anything")
-#     @test length(read_pipeline(pipe)) == 1
-#     get(pipe, testkey3)
-#     set(pipe, testkey4, "testing")
-#     result = read_pipeline(pipe)
-#     @test length(result) == 2
-#     @test result == ["anything", "OK"]
-#     @test del(pipe, testkey3) == 1
-#     @test del(pipe, testkey4) == 2
-#     @test result ==  ["anything", "OK"]
-#     disconnect(pipe)
+    pipe = PipelineConnection()
+    set(pipe, testkey, s1)
+    get(pipe, testkey)
+    zadd(pipe, testkey2, 0, s1)
+    zrank(pipe, testkey2, s1)
+    zrange(pipe, testkey2, 0, -1)
+    @test count(pipe) == 5
+    @test read(pipe) == "OK" #set
+    @test get(read(pipe)) == s1 #get
+    @test read(pipe) == 1 #zadd
+    @test read(pipe) == 0  #rank
+    @test read(pipe) == [s1]  #zrange
+    del(pipe, testkey, testkey2)
+    keys(pipe, "*")
+    @test read(pipe) == 2
+    @test length(read(pipe)) == 0
+    disconnect(pipe)
 end
 #
 @testset "Pub/Sub" begin

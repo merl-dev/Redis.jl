@@ -45,7 +45,7 @@ macro redisfunction(command, parser, args...)
     return quote
         function $(fn_name)(conn::RedisConnection, $(args...))
             if !is_connected(conn)
-                conn = restart(conn)
+                conn = reconnect(conn)
             end
             command_str = flatten_command($(command...), $(args...))
             reply = redis_command(conn, command_str)
@@ -58,9 +58,9 @@ macro redisfunction(command, parser, args...)
         # transaction connections always return a simple string "QUEUED"
         function $(fn_name)(conn::TransactionConnection, $(args...))
             if !is_connected(conn)
-                conn = restart(conn)
+                conn = reconnect(conn)
             end
-            command_str = flatten_command($command, $(args...))
+            command_str = flatten_command($(command...), $(args...))
             reply = redis_command(conn, command_str)
             r = unsafe_load(reply)
             s = parse_string_reply(r)
@@ -68,25 +68,28 @@ macro redisfunction(command, parser, args...)
             return s
         end
 
-        # function $(fn_name)(conn::PipelineConnection, $(args...))
-        #     pipeline_command(conn, flatten_command($command, $(args...)))
-        #     conn.count += 1
-        # end
-    end
-end
+        # pipelined connections do not reply
+        function $(fn_name)(conn::PipelineConnection, $(args...))
+            if !is_connected(conn)
+                conn = reconnect(conn)
+            end
+            command_str = flatten_command($(command...), $(args...))
+            redis_command(conn, command_str)
+            enqueue!(conn.parsers, $(parser))
+            return
+        end
 
-struct RedisReply
-    rtype::Int32                  # REDIS_REPLY_*
-    integer::Int64                # The integer when type is REDIS_REPLY_INTEGER, HiReds.jl bug: this was UInt64
-    len::Int32                    # Length of string
-    str::Ptr{UInt8}               # Used for both REDIS_REPLY_ERROR and REDIS_REPLY_STRING
-    elements::UInt                # number of elements, for REDIS_REPLY_ARRAY
-    element::Ptr{Ptr{RedisReply}} # elements vector for REDIS_REPLY_ARRAY
+    end
 end
 
 redis_command(conn::RedisConnectionBase, command_str::String) =
     ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
         conn.context, command_str)
+
+redis_command(conn::PipelineConnection, command_str::String) =
+    ccall((:redisAppendCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
+        conn.context, command_str)
+
 
 parse_string_reply(reply::RedisReply) =
     ccall(:jl_pchar_to_string, Ref{String}, (Ptr{UInt8}, Int), reply.str, reply.len)
@@ -144,6 +147,20 @@ function parse_nullable_arr_reply(reply::RedisReply)
     end
     results
 end
+
+function Base.read(conn::PipelineConnection)
+    @assert count(conn) > 0
+    replyptr = Array{Ptr{RedisReply}, 1}(1)  # RedisRedply**
+    reply = ccall((:redisGetReply, "libhiredis"), Int32, (Ptr{RedisContext},
+        Ptr{Ptr{RedisReply}}), conn.context, replyptr)
+    if reply == REDIS_OK
+        r = unsafe_load(replyptr[1])
+        dequeue!(conn.parsers)(r)
+    else
+        throw(ServerException("server failed get_reply: ", "undetermined"))
+    end
+end
+
 "Free memory allocated to objects returned from hiredis"
 function free_reply_object(redisReply)
     ccall((:freeReplyObject, "libhiredis"), Void, (Ptr{RedisReply},), redisReply)

@@ -10,9 +10,6 @@ end
 
 using Base.Dates, DataStructures, NullableArrays
 
-abstract type RedisConnectionBase end
-abstract type SubscribableConnection <: RedisConnectionBase end
-
 import Base: convert, get, keys, time, collect, ==, show, sort, start, done, next, eltype
 
 export  RedisException,
@@ -25,6 +22,8 @@ export  RedisException,
         RedisReader,
         RedisConnection,
         TransactionConnection,
+        PipelineConnection,
+        read_pipeline,
         disconnect,
         is_connected,
         redis_command,
@@ -99,10 +98,9 @@ function convert(::Type{Dict{String, String}}, strvec::Vector{Any})
 end
 
 include("exceptions.jl")
-include("connection.jl")
-include("transaction.jl")
+include("connections.jl")
 include("commands.jl")
 include("command_defs.jl")
-include("scaniterator.jl")
+include("scaniterators.jl")
 
 end

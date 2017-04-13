@@ -1,3 +1,5 @@
+# RedisReadTask, ReplyObjectFunctions and RedisReader are defined here for those wishing to
+# implement readers based on the hiredis library
 struct RedisReadTask
     rtype::Int32
     elements::Int32
@@ -41,6 +43,15 @@ struct RedisReader
     privdata::Ptr{Void}
 end
 
+struct RedisReply
+    rtype::Int32                  # REDIS_REPLY_*
+    integer::Int64                # The integer when type is REDIS_REPLY_INTEGER, HiReds.jl bug: this was UInt64
+    len::Int32                    # Length of string
+    str::Ptr{UInt8}               # Used for both REDIS_REPLY_ERROR and REDIS_REPLY_STRING
+    elements::UInt                # number of elements, for REDIS_REPLY_ARRAY
+    element::Ptr{Ptr{RedisReply}} # elements vector for REDIS_REPLY_ARRAY
+end
+
 struct RedisContext
     err::Int32
     errstr::Ptr{UInt8}
@@ -50,6 +61,9 @@ struct RedisContext
     reader::Ptr{RedisReader}
 end
 
+abstract type RedisConnectionBase end
+abstract type SubscribableConnection <: RedisConnectionBase end
+
 struct RedisConnection <: SubscribableConnection
     host::AbstractString
     port::Integer
@@ -58,8 +72,12 @@ struct RedisConnection <: SubscribableConnection
     context::Ptr{RedisContext}
 end
 
-function show(io::IO, rc::RedisConnection)
-    print(io, "    host: ", rc.host, "\n    port: ", rc.port, "\npassword: ", "****", "\n      db: ", rc.db, "\nRedisContext\n", unsafe_load(rc.context))
+function show(io::IO, rc::RedisConnectionBase)
+    println(typeof(rc))
+    println(io, "    host: ", rc.host)
+    println(io, "    port: ", rc.port)
+    println(io, "password: ", "****")
+    println(io, "      db: ", rc.db)
 end
 
 """
@@ -89,19 +107,6 @@ function RedisConnection(; host="127.0.0.1", port=6379, password="", db=0)
         connection = RedisConnection(host, port, password, db, context)
         on_connect(connection)
     end
-end
-
-struct ConnectReply
-    reply::Int
-    msg::AbstractString
-end
-
-# used internally
-function _is_connected(context::Ptr{RedisContext})
-    uc = unsafe_load(context)
-    uc.err == REDIS_OK ? ConnectReply(uc.err, "") :
-        ConnectReply(uc.err, "unknown connect failure, often host:port incorrect or
-            redis-server not started")
 end
 
 """
@@ -137,8 +142,46 @@ end
 Close any one of the four RedisConnectionBase types and release associated resources.
 
 # Note
-Submitting another command with a closed connection will call `restart` on that connection.
+Submitting another command with a closed connection will call `reconnect` on that connection.
 """
-disconnect(conn::RedisConnectionBase) = ccall((:redisFree, "libhiredis"), Void, (Ptr{RedisContext},), conn.context)
+disconnect(conn::RedisConnectionBase) =
+    ccall((:redisFree, "libhiredis"), Void, (Ptr{RedisContext},), conn.context)
 
-restart(conn::RedisConnection) = RedisConnection(host=conn.host, port=conn.port, password=conn.password, db=conn.db)
+function reconnect(conn::RedisConnection)
+    reply = ccall((:redisReconnect, "libhiredis"), Ptr{RedisContext}, (Ptr{RedisContext},), conn.context)
+    if reply != REDIS_OK
+        throw(ConnectionException(string("Failed to reconnect to Redis server: ", "undertermined")))
+    end
+end
+
+# the sole purpose of this connection type is to define a different set of parsers
+# for all of the redis commands.
+struct TransactionConnection <: SubscribableConnection
+    host::AbstractString
+    port::Integer
+    password::AbstractString
+    db::Integer
+    context::Ptr{RedisContext}
+    function TransactionConnection(; host="127.0.0.1", port=6379, password="", db=0)
+        conn = RedisConnection(host=host, port=port, password=password, db=db)
+        new(conn.host, conn.port, conn.password, conn.db, conn.context)
+    end
+end
+
+# the sole purpose of this connection type is to define a different set of parsers
+# for all of the redis commands. The `parsers` field consists of an Array of reply
+# parsers called when the pipleine is read.
+struct PipelineConnection <: RedisConnectionBase
+    host::AbstractString
+    port::Integer
+    password::AbstractString
+    db::Integer
+    parsers::Queue{Function}
+    context::Ptr{RedisContext}
+    function PipelineConnection(; host="127.0.0.1", port=6379, password="", db=0)
+        conn = RedisConnection(host=host, port=port, password=password, db=db)
+        new(conn.host, conn.port, conn.password, conn.db, Queue(Function), conn.context)
+    end
+end
+Base.count(conn::PipelineConnection) = length(conn.parsers)
+parsers(conn::PipelineConnection) = conn.parsers
