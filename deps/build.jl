@@ -3,7 +3,7 @@ using Compat
 
 @BinDeps.setup
 
-libhiredis = library_dependency(:libhiredis)
+libhiredis = library_dependency("libhiredis")
 
 provides(AptGet, Dict("libhiredis-dev"=>libhiredis))
 

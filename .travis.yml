@@ -1,8 +1,8 @@
 services:
   - redis-server
 language: julia
-julia: 
-  - 0.5
+julia:
+  - 0.6
 notifications:
   email: false
 before_install:

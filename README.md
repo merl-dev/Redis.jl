@@ -8,23 +8,23 @@
 Redis.jl is a fully-featured Redis client for the Julia programming language. The implementation is an attempt at an easy to understand, minimalistic API that mirrors actual Redis commands as closely as possible.
 
 ## WIP: Type Stable HiRedis branch
-
-    * merges a debugged version of HiRedis.jl, based on the C-language hiredis interface to Redis.
-    * fast command-string builder
-    * new parsers:
-        * `parse_string_reply` => Redis Simple Strings
-        * `parse_int_reply` => Redis Integers
-        * `parse_array_reply` => Redis Arrays
-        * `parse_nullable_str_reply` => Bulk Strings (when response may contain `nil`)
-        * `parse_nullable_int_reply` => Redis Integers (when response may contain `nil`)
-        * `parse_nullable_arr_reply` => for mixed response arrays, mostly `multi`/`exec` blocks
+Merges a debugged version of HiRedis.jl, based on the C-language hiredis interface to Redis.
+* faster command parser
+* new parsers:
+    * `parse_string_reply` => Redis Simple Strings
+    * `parse_int_reply` => Redis Integers
+    * `parse_array_reply` => Redis Arrays
+    * `parse_nullable_str_reply` => Bulk Strings (when response may contain `nil`)
+    * `parse_nullable_int_reply` => Redis Integers (when response may contain `nil`)
+    * `parse_nullable_arr_reply` => for mixed response arrays, mostly `multi`/`exec` blocks
     * some commands return `NullableArrays`
 
 _TODO_:
 * key-prefixing
-* **Pipelines**, Sentinels, Clusters, **Scripting**, and **Pub/Sub** need refactoring to pass tests
+* async pub/sub
+* ~~Pipelines~~, Sentinels, Clusters, **Scripting**, and ~~Pub/Sub~~ need refactoring to pass tests
 * create a clean benchmark suite
-* cleanup readme
+* cleanup readme/move to Documenter
 
 ## Basics
 
@@ -127,7 +127,7 @@ multi(trans) # Throws a ServerException
 
 Notice the subtle difference from the previous example; after calling `exec`, the `TransactionConnection` is placed into another `MULTI` block rather than returning to a 'normal' state as the `RedisConnection` does.
 
-## Pub/sub
+## Pub/sub -- blocking only
 
 Redis.jl provides full support for Redis pub/sub. Publishing is accomplished by using the command as normal:
 
@@ -161,7 +161,6 @@ publish(conn, "bar", "anything") # "anything" written to stdout
 
 Pattern subscription works in the same way through use of the `psubscribe` function. Channels can be unsubscribed through `unsubscribe` and `punsubscribe`.
 
-Note that the async event loop currently runs until the `SubscriptionConnection` is disconnected, regardless of how many subscriptions the client has active. Event loop error handling should be improved in an update to the API.
 
 ### Subscription error handling
 
