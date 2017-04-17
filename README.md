@@ -1,3 +1,5 @@
+**(see typestable0.6 branch)**
+
 # Redis.jl
 
 
