@@ -7,7 +7,7 @@ before_install:
   - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
   - sudo apt-get -y update
   - wget https://github.com/antirez/redis/archive/4.0.tar.gz
-  - tar xvzf unstable.tar.gz
+  - tar xvzf 4.0.tar.gz
   - cd redis-4.0 && make && sudo make install
   - cd ..
   - sudo apt-get install libhiredis-dev -y
