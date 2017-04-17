@@ -1,5 +1,5 @@
-using Redis, NullableArrays, Base.Dates, Base.Test, BenchmarkTools
-import DataStructures: Queue
+using Redis, NullableArrays, Base.Dates, Base.Test
+
 conn = RedisConnection()
 flushall(conn)
 # some random key names
