@@ -23,6 +23,12 @@ export  RedisException,
         RedisConnection,
         TransactionConnection,
         PipelineConnection,
+        SubscriptionConnection,
+        subscribe,
+        psubscribe,
+        startSubscriptionLoop,
+        publish,
+        pubsub,
         read_pipeline,
         disconnect,
         is_connected,
@@ -71,10 +77,10 @@ export discard, exec, multi, unwatch, watch
 export evalscript, evalsha, script_exists, script_flush, script_kill, script_load
 # Server commands
 export bgrewriteaof, bgsave, client_list, client_pause, client_getname, client_setname,
-       client_reply, cluster_slots, command, command_count, command_info, config_get,
-       config_resetstat, config_rewrite, config_set, dbsize, debug_object, object_refcount,
-       object_idletime, object_encoding, flushall, flushdb, lastsave, role, save, shutdown,
-       slaveof, time
+       client_reply, client_kill_addr, client_kill_filt, cluster_slots, command,
+       command_count, command_info, config_get, config_resetstat, config_rewrite,
+       config_set, dbsize, debug_object, object_refcount, object_idletime, object_encoding,
+       flushall, flushdb, lastsave, role, save, shutdown, slaveof, time
 # *SCAN Iterators
 export AllKeyScanner, KeyScanner, start, next, done
 

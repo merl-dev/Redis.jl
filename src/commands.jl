@@ -83,11 +83,11 @@ macro redisfunction(command, parser, args...)
 end
 
 redis_command(conn::RedisConnectionBase, command_str::String) =
-    ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
+    ccall((:redisCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
         conn.context, command_str)
 
 redis_command(conn::PipelineConnection, command_str::String) =
-    ccall((:redisAppendCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
+    ccall((:redisAppendCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
         conn.context, command_str)
 
 
@@ -151,11 +151,13 @@ end
 function Base.read(conn::PipelineConnection)
     @assert count(conn) > 0
     replyptr = Array{Ptr{RedisReply}, 1}(1)  # RedisRedply**
-    reply = ccall((:redisGetReply, "libhiredis"), Int32, (Ptr{RedisContext},
+    reply = ccall((:redisGetReply, :libhiredis), Int32, (Ptr{RedisContext},
         Ptr{Ptr{RedisReply}}), conn.context, replyptr)
     if reply == REDIS_OK
         r = unsafe_load(replyptr[1])
-        dequeue!(conn.parsers)(r)
+        parsed_reply = dequeue!(conn.parsers)(r)
+        free_reply_object(replyptr[1])
+        return parsed_reply
     else
         throw(ServerException("server failed get_reply: ", "undetermined"))
     end
@@ -163,5 +165,5 @@ end
 
 "Free memory allocated to objects returned from hiredis"
 function free_reply_object(redisReply)
-    ccall((:freeReplyObject, "libhiredis"), Void, (Ptr{RedisReply},), redisReply)
+    ccall((:freeReplyObject, :libhiredis), Void, (Ptr{RedisReply},), redisReply)
 end

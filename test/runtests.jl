@@ -1,5 +1,5 @@
 using Redis, NullableArrays, Base.Dates, Base.Test, BenchmarkTools
-import DataStructures: Queue, OrderedSet, PriorityQueue
+import DataStructures: Queue
 conn = RedisConnection()
 flushall(conn)
 # some random key names
@@ -407,6 +407,7 @@ end
     @test Array(resp[1:4]) == ["OK", s1, 1, "1"]
     @test isnull(resp[5])
     disconnect(trans)
+    del(conn, testkey, testkey2)
 end
 #
 @testset "Pipeline" begin
@@ -430,32 +431,18 @@ end
 end
 #
 @testset "Pub/Sub" begin
-#     g(y) = print(y)
-#     x = String[]
-#     f(y) = begin push!(x, y); println("channel func f: ", y) end
-#     h(y) = begin push!(x, y); println("channel func h: ", y) end
-#     subs = SubscriptionConnection(parent=conn)
-#     s1 = subscribe(subs, "channel", f)
-#     s2 = subscribe(subs, "duplicate", h)
-#     clients = client_list(subs.parent, asdict=true)
-#     @test length(clients) == 2
-#     # one client should have 2 subscriptions
-#     @test (clients[1]["sub"] == "2" || clients[2]["sub"] == "2")
-#     # @test pubsub(conn, "channels") = Any["duplicate", "channel"] fails, ""channels"" is not a valid function argument name
-#     @test pubsub(conn, "numsub", "duplicate", "channel") == Any["duplicate", 1, "channel", 1]
-#     tsk = startSubscriptionLoopAsync(subs, println)
-#     @test typeof(tsk) == Task
-#     @test tsk.state == :queued || tsk.state == :runnable
-#     @test publish(subs.parent, "channel", "hello, world!") == 1
-#     sleep(1)
-#     @test x == ["hello, world!"]
-#     unsubscribe(subs, "channel")
-#     unsubscribe(subs, "duplicate")
-#     disconnect(subs)
+    # g(y) = print(y)
+    # channel1cb(y) = println("channel func 1: ", y)
+    # channel2cb(y) = println("channel func 2: ", y)
+    # channel3cb(y) = println("channel func 3: ", y)
+    # subs = SubscriptionConnection()
+    # s1 = subscribe(subs, "channel1", channel1cb)
+    # s2 = subscribe(subs, "channel2", channel2cb)
+    # s3 = psubscribe(subs, "ch*", channel3cb)
 end
-# # need to have running instance of sentinel first
+
 @testset "Sentinel" begin
-# #     sconn = SentinelConnection()
+
 end
 
 @testset "Cluster" begin

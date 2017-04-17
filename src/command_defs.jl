@@ -264,6 +264,23 @@ end
 @redisfunction "bgsave" parse_string_reply
 @redisfunction "client_pause" parse_string_reply timeout
 
+function client_kill_addr(conn::RedisConnectionBase, addr, port)
+    if !is_connected(conn)
+        conn = reconnect(conn)
+    end
+    reply = redis_command(conn, "client kill $addr:$port")
+    s = parse_string_reply(unsafe_load(reply))
+    free_reply_object(reply)
+    return s
+end
+
+function client_kill_filt(conn::RedisConnectionBase, filters::Dict{AbstractString, AbstractString})
+    reply = redis_command(conn, string("client kill ", flatten(filters)))
+    i = parse_int_reply(unsafe_load(reply))
+    free_reply_object(reply)
+    return i
+end
+
 function client_list(conn::RedisConnectionBase; asdict=false)
     if !is_connected(conn)
         conn = reconnect(conn)
@@ -413,7 +430,6 @@ function _info(response)
     results
 end
 
-# TODO convert unix time stamp to DateTime
 @redisfunction "lastsave" parse_int_reply
 @redisfunction "role" parse_nullable_arr_reply
 @redisfunction "save" parse_string_reply
@@ -424,21 +440,56 @@ function shutdown(conn::RedisConnectionBase; save=true)
     if !is_connected(conn)
         conn = reconnect(conn)
     end
-    reply = ccall((:redisCommand, "libhiredis"), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
+    reply = ccall((:redisCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
         "shutdown " * ifelse(save, "save", "nosave"))
 end
 
-# Custom commands (PubSub/Transaction)
+# PubSub
+function _subscribe(conn::SubscriptionConnection, channels::Array)
+    msgs = Array{String, 1}(0)
+    for channel in channels
+        reply = redis_command(conn, "subscribe $channel")
+        r = unsafe_load(reply)
+        push!(msgs, parse_string_reply(r))
+        free_reply_object(reply)
+    end
+    msgs
+end
+
+function subscribe(conn::SubscriptionConnection, channel::AbstractString, callback::Function)
+    conn.callbacks[channel] = callback
+    _subscribe(conn, [channel])
+end
+
+function subscribe(conn::SubscriptionConnection, subs::Dict{AbstractString, Function})
+    for (channel, callback) in subs
+        conn.callbacks[channel] = callback
+    end
+    _subscribe(conn, collect(keys(subs)))
+end
+
+function _psubscribe(conn::SubscriptionConnection, channels::Array)
+    msgs = Array{String, 1}(0)
+    for channel in channels
+        reply = redis_command(conn, "psubscribe $channel")
+        r = unsafe_load(reply)
+        push!(msgs, parse_string_reply(r))
+        free_reply_object(reply)
+    end
+    msgs
+end
+
+function psubscribe(conn::SubscriptionConnection, channel::AbstractString, callback::Function)
+    conn.pcallbacks[channel] = callback
+    _psubscribe(conn, [channel])
+end
+
+function psubscribe(conn::SubscriptionConnection, subs::Dict{AbstractString, Function})
+    for (channel, callback) in subs
+        conn.pcallbacks[channel] = callback
+    end
+    _psubscribe(conn, collect(keys(subs)))
+end
+
 @redisfunction "publish" parse_int_reply channel message
 @redisfunction "pubsub" parse_array_reply subcommand cmds...
-
-function Base.time(conn::RedisConnectionBase)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    tm = config_rewrite(conn)
-    s = parse(Int,tm[1])
-    ms = parse(Float64, tm[2])
-    s += (ms / 1e6)
-    return unix2datetime(s)
-end

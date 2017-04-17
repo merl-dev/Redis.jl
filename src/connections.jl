@@ -98,7 +98,7 @@ the error upon failure.
 Once successfully connected, an attempt is made to authorize and select the given db.
 """
 function RedisConnection(; host="127.0.0.1", port=6379, password="", db=0)
-    context = ccall((:redisConnect, "libhiredis"), Ptr{RedisContext}, (Ptr{UInt8}, Int32), host, port)
+    context = ccall((:redisConnect, :libhiredis), Ptr{RedisContext}, (Ptr{UInt8}, Int32), host, port)
     ctxt = unsafe_load(context)
     if ctxt.err != REDIS_OK
         #errptr = unsafe_string(ctxt.errstr) crashes
@@ -145,10 +145,10 @@ Close any one of the four RedisConnectionBase types and release associated resou
 Submitting another command with a closed connection will call `reconnect` on that connection.
 """
 disconnect(conn::RedisConnectionBase) =
-    ccall((:redisFree, "libhiredis"), Void, (Ptr{RedisContext},), conn.context)
+    ccall((:redisFree, :libhiredis), Void, (Ptr{RedisContext},), conn.context)
 
-function reconnect(conn::RedisConnection)
-    reply = ccall((:redisReconnect, "libhiredis"), Ptr{RedisContext}, (Ptr{RedisContext},), conn.context)
+function reconnect(conn::RedisConnectionBase)
+    reply = ccall((:redisReconnect, :libhiredis), Ptr{RedisContext}, (Ptr{RedisContext},), conn.context)
     if reply != REDIS_OK
         throw(ConnectionException(string("Failed to reconnect to Redis server: ", "undertermined")))
     end
@@ -185,3 +185,64 @@ struct PipelineConnection <: RedisConnectionBase
 end
 Base.count(conn::PipelineConnection) = length(conn.parsers)
 parsers(conn::PipelineConnection) = conn.parsers
+
+
+struct SubscriptionConnection <: SubscribableConnection
+    host::AbstractString
+    port::Integer
+    password::AbstractString
+    db::Integer
+    callbacks::Dict{AbstractString, Function}
+    pcallbacks::Dict{AbstractString, Function}
+    context::Ptr{RedisContext}
+    function SubscriptionConnection(; host="127.0.0.1", port=6379, password="", db=0)
+        conn = RedisConnection(host=host, port=port, password=password, db=db)
+        new(conn.host, conn.port, conn.password, conn.db, Dict{AbstractString, Function}(),
+            Dict{AbstractString, Function}(), conn.context)
+    end
+end
+
+nullsccb(err) = println(err)
+
+startSubscriptionLoop(conn::SubscriptionConnection, err_cb::Function) = _loop(conn, err_cb)
+
+function _loop(conn::SubscriptionConnection, err_cb::Function)
+    while is_connected(conn)
+        try
+            reply = redis_command(conn, "")
+            r = unsafe_load(reply)
+            message = Redis.SubscriptionMessage(parse_array_reply(r))
+            if message.message_type == Redis.SubscriptionMessageType.Message
+                conn.callbacks[message.channel](message.message)
+            elseif message.message_type == Redis.SubscriptionMessageType.Pmessage
+                conn.pcallbacks[message.channel](message.message)
+            end
+        catch err
+            err_cb(err)
+        end
+    end
+end
+
+baremodule SubscriptionMessageType
+    const Message = 0
+    const Pmessage = 1
+    const Other = 2
+end
+
+struct SubscriptionMessage
+    message_type
+    channel::AbstractString
+    message::AbstractString
+
+    function SubscriptionMessage(reply::AbstractArray)
+        notification = reply
+        message_type = notification[1]
+        if message_type == "message"
+            new(SubscriptionMessageType.Message, notification[2], notification[3])
+        elseif message_type == "pmessage"
+            new(SubscriptionMessageType.Pmessage, notification[2], notification[4])
+        else
+            new(SubscriptionMessageType.Other, "", "")
+        end
+    end
+end
