@@ -1,13 +1,16 @@
-services:
-  - redis-server
 language: julia
 julia:
   - 0.6
 notifications:
   email: false
 before_install:
+  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
+  - sudo apt-get -y update
+  - wget https://github.com/antirez/redis/archive/4.0.tar.gz
+  - tar xvzf unstable.tar.gz
+  - cd redis-4.0 && make && sudo make install
+  - cd ..
   - sudo apt-get install libhiredis-dev -y
-  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
 script:
   - julia -e 'Pkg.init(); Pkg.clone(pwd()); Pkg.add("BinDeps"); Pkg.add("DataStructures"); Pkg.build("Redis"); Pkg.test("Redis", coverage=true)'
 after_success:
