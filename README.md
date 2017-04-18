@@ -18,6 +18,7 @@ Merges a debugged version of HiRedis.jl, based on the C-language hiredis interfa
     * `parse_nullable_int_reply` => Redis Integers (when response may contain `nil`)
     * `parse_nullable_arr_reply` => for mixed response arrays, mostly `multi`/`exec` blocks
     * some commands return `NullableArrays`
+* Geo Set API added
 
 _TODO_:
 * key-prefixing
