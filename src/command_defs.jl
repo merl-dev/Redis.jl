@@ -542,3 +542,61 @@ end
 @redisfunction "geodist" parse_nullable_str_reply key member1 member2...
 @redisfunction "georadius" parse_array_reply key longitude latitude radius units options...
 @redisfunction "georadiusbymember" parse_array_reply key member radius units options...
+
+# Cluster commands
+@clusterfunction "cluster_addslots" parse_string_reply slots...
+@clusterfunction "cluster_delslots" parse_string_reply slots...
+@clusterfunction "cluster_getkeysinslot" parse_array_reply slot count
+@clusterfunction "cluster_meet" parse_string_reply ip port
+@clusterfunction "cluster_reset" parse_string_reply drasticness
+@clusterfunction "cluster_setslot" parse_string_reply slot subcommand...
+@clusterfunction "cluster_countfailurereports" parse_int_reply nodeid
+@clusterfunction "cluster_failover" parse_string_reply failovertype
+@clusterfunction "cluster_saveconfig" parse_string_reply
+@clusterfunction "cluster_countkeysinslot" parse_int_reply slot
+@clusterfunction "cluster_forget" parse_string_reply nodeid
+@clusterfunction "cluster_keyslot" parse_int_reply key
+@clusterfunction "cluster_replicate" parse_string_reply nodeid
+@clusterfunction "cluster_setconfigepoch" parse_string_reply epoch
+@clusterfunction "cluster_slots" parse_nullable_arr_reply
+function cluster_slaves(conn, nodeid)
+    if !is_connected(conn)
+        conn = reconnect(conn)
+    end
+    reply = redis_command(conn, "cluster nodes")
+    r = unsafe_load(reply)
+    response = parse_string_reply(r)
+    free_reply_object(reply)
+    split(response, '\n')[1:end-1]
+end
+
+function cluster_nodes(conn)
+    if !is_connected(conn)
+        conn = reconnect(conn)
+    end
+    reply = redis_command(conn, "cluster nodes")
+    r = unsafe_load(reply)
+    response = parse_string_reply(r)
+    free_reply_object(reply)
+    split(response, '\n')[1:end-1]
+end
+
+function cluster_info(conn::RedisConnectionBase; asdict=true)
+    if !is_connected(conn)
+        conn = reconnect(conn)
+    end
+    reply = redis_command(conn, string("debug object ", key))
+    r = unsafe_load(reply)
+    response = parse_array_reply(r)
+    free_reply_object(reply)
+
+    if asdict
+        results = Dict{AbstractString, AbstractString}()
+        for i = 1:2: length(response)
+            results[response[i]] = response[i+1]
+        end
+        results
+    else
+        response
+    end
+end

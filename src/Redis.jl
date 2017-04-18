@@ -27,6 +27,7 @@ export  RedisException,
         SubscriptionConnection,
         SentinelConnection,
         @sentinelfunction,
+        @clusterfunction,
         disconnect,
         is_connected,
         redis_command,
@@ -113,7 +114,25 @@ export  geoadd,
         geodist,
         georadius,
         georadiusbymember
-
+# Cluster commands
+export  cluster_info,
+        cluster_addslots,
+        cluster_delslots,
+        cluster_getkeysinslot,
+        cluster_meet,
+        cluster_reset,
+        cluster_setslot,
+        cluster_countfailurereports,
+        cluster_failover,
+        cluster_nodes,
+        cluster_saveconfig,
+        cluster_slaves,
+        cluster_countkeysinslot,
+        cluster_forget,
+        cluster_keyslot,
+        cluster_replicate,
+        cluster_setconfigepoch,
+        cluster_slots
 
 const REDIS_ERR = -1
 const REDIS_OK = 0

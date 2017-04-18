@@ -84,6 +84,10 @@ An exception to this option syntax are the functions `zinterstore` and `zunionst
 
 **add new doc**
 
+## Cluster
+
+**add doc**
+
 ## Streaming Scanners
 
 In order to simplify use of the Redis scan commands, SCAN (keys), SSCAN (sets), ZSCAN (ordered sets), and HSCAN (hashes), an julia iterator interface is provided. To initialize a scan use the appropriate constructor:
