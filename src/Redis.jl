@@ -88,6 +88,11 @@ export  subscribe,
         startSubscriptionLoop,
         publish,
         pubsub
+# Latency commands
+export  latency_latest,
+        latency_history,
+        latency_reset,
+        latency_doctor
 # Sentinel commands
 export  sentinel_master,
         sentinel_master,
@@ -107,19 +112,6 @@ const REDIS_OK = 0
 
 "define a default callback that does nothing"
 nullcb(args) = nothing
-
-"""
-        convert(::Type{Dict{String, String}}, strvec::Array{String, 1})
-
-Helper converts redis reply vectors to `Dict`
-"""
-function Base.convert{T<:AbstractString}(::Type{Dict{T, T}}, strvec::Array{T, 1})
-    resulti = Dict{T, T}()
-    for i in 1:2:length(strvec)
-        resulti[strvec[i]] = strvec[i+1]
-    end
-    resulti
-end
 
 include("exceptions.jl")
 include("connections.jl")

@@ -493,6 +493,13 @@ end
 @redisfunction "publish" parse_int_reply channel message
 @redisfunction "pubsub" parse_array_reply subcommand cmds...
 
+# Latency monitoring
+# Report the latest latency events logged
+@redisfunction "latency_latest" parse_nullable_arr_reply
+@redisfunction "latency_history" parse_nullable_arr_reply eventname
+@redisfunction "latency_reset" parse_int_reply eventnames...
+@redisfunction "latency_doctor" parse_string_reply
+
 # Sentinel commands
 # Show the state and info of the specified master
 @sentinelfunction "master" parse_array_reply mastername

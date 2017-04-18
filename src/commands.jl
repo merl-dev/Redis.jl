@@ -156,7 +156,7 @@ function parse_nullable_arr_reply(reply::RedisReply)
         elseif ur.rtype == 4
             push!(results, Nullable{String}())
         else
-            rec = parse_array_reply(ur)
+            rec = parse_nullable_arr_reply(ur)
             for rix in 1:length(rec)
                 push!(results, rec[rix])
             end
