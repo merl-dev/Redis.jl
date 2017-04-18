@@ -106,6 +106,14 @@ export  sentinel_master,
         sentinel_remove,
         sentinel_set,
         sentinel_getmasteraddrbyname
+# Geo commands
+export  geoadd,
+        geohash,
+        geopos,
+        geodist,
+        georadius,
+        georadiusbymember
+
 
 const REDIS_ERR = -1
 const REDIS_OK = 0

@@ -449,6 +449,28 @@ end
 
 end
 
+@testset "GeoSets" begin
+    @test geoadd(conn, "Sicily", 13.361389, 38.115556, "Palermo", 15.087269, 37.502669,
+     "Catania") == 2
+    @test get(geodist(conn, "Sicily", "Palermo", "Catania")) == "166274.1516"
+    @test georadius(conn, "Sicily", "15", "37", "100","km")[1] == "Catania"
+    @test georadius(conn, "Sicily", "15", "37", "200", "km") == ["Palermo", "Catania"]
+    @test georadius(conn, "Sicily", "15", "37", "200", "km", "WITHDIST") ==
+        ["Palermo", "190.4424", "Catania", "56.4413"]
+    @test georadius(conn, "Sicily", "15", "37", "200", "km", "WITHCOORD") ==
+        ["Palermo", "13.36138933897018433", "38.11555639549629859", "Catania",
+        "15.08726745843887329", "37.50266842333162032"]
+    geoadd(conn, "Sicily", 13.583333, 37.316667, "Agrigento")
+    @test georadiusbymember(conn, "Sicily", "Agrigento", "100", "km") == ["Agrigento", "Palermo"]
+    @test geohash(conn, "Sicily", "Palermo", "Catania") == ["sqc8b49rny0", "sqdtr74hyu0"]
+    pos = geopos(conn, "Sicily", "Palermo", "Catania", "NonExisting")
+    @test get(pos[1]) == "13.36138933897018433"
+    @test get(pos[2]) == "38.11555639549629859"
+    @test get(pos[3]) == "15.08726745843887329"
+    @test get(pos[4]) == "37.50266842333162032"
+    @test isnull(pos[5])
+end
+
 @testset "Sundry" begin
     @test Redis.echo(conn, "astringtoecho") == "astringtoecho"
     @test Redis.ping(conn) == "PONG"

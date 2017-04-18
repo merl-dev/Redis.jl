@@ -132,7 +132,7 @@ The following methods return a `Nullable{T}(value)` corresponding to a Redis 'NI
 * `spop(conn, "empty_set")`
 * `srandmember(conn, "empty_set")`
 
-####Sorted Sets
+#### Sorted Sets
 * `zrank(conn, "ordered_set", "non_existent_member")`
 * `zrevrank(conn, "ordered_set", "non_existent_member")`
 * `zscore(conn, "ordered_set", "non_existent_member")`
