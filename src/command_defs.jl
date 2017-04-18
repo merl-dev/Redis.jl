@@ -337,7 +337,6 @@ end
 @redisfunction "config_resetstat" parse_string_reply
 @redisfunction "config_rewrite" parse_string_reply
 @redisfunction "dbsize" parse_int_reply
-#@redisfunction "debug_segfault"
 @redisfunction "flushall" parse_string_reply
 @redisfunction "flushdb" parse_string_reply
 
@@ -493,3 +492,38 @@ end
 
 @redisfunction "publish" parse_int_reply channel message
 @redisfunction "pubsub" parse_array_reply subcommand cmds...
+
+# Sentinel commands
+# Show the state and info of the specified master
+@sentinelfunction "master" parse_array_reply mastername
+# Show a list of monitored masters and their state
+@sentinelfunction "masters" parse_array_reply
+# Show a list of slaves for this master, and their state
+@sentinelfunction "slaves" parse_array_reply mastername
+# Show a list of sentinel instances for this master, and their state
+@sentinelfunction "sentinels" parse_array_reply mastername
+# Reset all the masters with matching name
+@sentinelfunction "reset" parse_int_reply pattern
+# Force a failover as if the master was not reachable, and without asking for agreement
+@sentinelfunction "failover" parse_string_reply mastername
+# Check if the current Sentinel configuration is able to reach the quorum needed to
+# failover a master, and the majority needed to authorize the failover
+@sentinelfunction "ckquorum" parse_string_reply mastername
+# Force Sentinel to rewrite its configuration on disk, including the current Sentinel state
+@sentinelfunction "flushconfig" parse_string_reply
+# Start monitoring a new master with the specified name, ip, port, and quorum
+@sentinelfunction "monitor" parse_string_reply name ip port quorum
+# Remove the specified master
+@sentinelfunction "remove" parse_string_reply name
+# Change configuration parameters of a specific master. Multiple option / value pairs can
+# be specified (or none at all). All the configuration parameters that can be configured
+# via sentinel.conf are also configurable using the SET command
+@sentinelfunction "set" parse_string_reply name option value
+# Return the ip and port number of the master with that name
+function sentinel_getmasteraddrbyname(conn::SentinelConnection, mastername)
+    command_str = flatten_command("sentinel", "get-master-addr-by-name", mastername)
+    reply = redis_command(conn, command_str)
+    r = parse_array_reply(unsafe_load(reply))
+    free_reply_object(reply)
+    return r
+end

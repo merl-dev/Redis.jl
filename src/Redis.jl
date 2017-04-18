@@ -21,23 +21,20 @@ export  RedisException,
         RedisReply,
         RedisReader,
         RedisConnection,
+        @redisfunction,
         TransactionConnection,
         PipelineConnection,
         SubscriptionConnection,
-        subscribe,
-        psubscribe,
-        startSubscriptionLoop,
-        publish,
-        pubsub,
-        read_pipeline,
+        SentinelConnection,
+        @sentinelfunction,
         disconnect,
         is_connected,
         redis_command,
         parse_string_reply,
         parse_int_reply,
+        parse_array_reply,
         parse_nullable_str_reply,
-        parse_nullable_int_reply,
-        parse_array_reply
+        parse_nullable_int_reply
 
 # Key commands
 export del, dump, exists, expire, expireat, keys,
@@ -83,6 +80,27 @@ export bgrewriteaof, bgsave, client_list, client_pause, client_getname, client_s
        flushall, flushdb, lastsave, role, save, shutdown, slaveof, time
 # *SCAN Iterators
 export AllKeyScanner, KeyScanner, start, next, done
+# Pipeline commands
+export  read_pipeline
+# Pub/Sub commands
+export  subscribe,
+        psubscribe,
+        startSubscriptionLoop,
+        publish,
+        pubsub
+# Sentinel commands
+export  sentinel_master,
+        sentinel_master,
+        sentinel_slaves,
+        sentinel_sentinels,
+        sentinel_reset,
+        sentinel_failover,
+        sentinel_ckquorum,
+        sentinel_flushconfig,
+        sentinel_monitor,
+        sentinel_remove,
+        sentinel_set,
+        sentinel_getmasteraddrbyname
 
 const REDIS_ERR = -1
 const REDIS_OK = 0
@@ -91,12 +109,12 @@ const REDIS_OK = 0
 nullcb(args) = nothing
 
 """
-        convert(::Type{Dict{String, String}}, strvec::Vector{Any})
+        convert(::Type{Dict{String, String}}, strvec::Array{String, 1})
 
 Helper converts redis reply vectors to `Dict`
 """
-function convert(::Type{Dict{String, String}}, strvec::Vector{Any})
-    resulti = Dict{String, String}()
+function Base.convert{T<:AbstractString}(::Type{Dict{T, T}}, strvec::Array{T, 1})
+    resulti = Dict{T, T}()
     for i in 1:2:length(strvec)
         resulti[strvec[i]] = strvec[i+1]
     end

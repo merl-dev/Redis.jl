@@ -246,3 +246,15 @@ struct SubscriptionMessage
         end
     end
 end
+
+immutable SentinelConnection <: SubscribableConnection
+    host::AbstractString
+    port::Integer
+    password::AbstractString
+    db::Integer
+    context::Ptr{RedisContext}
+    function SentinelConnection(; host="127.0.0.1", port=6379, password="", db=0)
+        conn = RedisConnection(host=host, port=port, password=password, db=db)
+        new(conn.host, conn.port, conn.password, conn.db, conn.context)
+    end
+end

@@ -82,6 +82,23 @@ macro redisfunction(command, parser, args...)
     end
 end
 
+macro sentinelfunction(command, parser, args...)
+    fn_name = esc(Symbol(string("sentinel_", command)))
+    return quote
+        function $(fn_name)(conn::SentinelConnection, $(args...))
+            if !is_connected(conn)
+                conn = reconnect(conn)
+            end
+            command_str = flatten_command("sentinel", $command, $(args...))
+            reply = redis_command(conn, command_str)
+            r = unsafe_load(reply)
+            s = $(parser)(r)
+            free_reply_object(reply)
+            return s
+        end
+    end
+end
+
 redis_command(conn::RedisConnectionBase, command_str::String) =
     ccall((:redisCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
         conn.context, command_str)
