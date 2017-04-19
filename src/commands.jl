@@ -1,12 +1,20 @@
 # Called by flatten_command. A `token` can be a String, Array, Set, Dict, or Tuple
 export flatten
+
 flatten(token::Number) = string(token)
 flatten(token::AbstractString) = token
-flatten(token::Array) = map(string, token)
 
-function flatten(token::Set)
+function flatten(tokens::Set)
     io = IOBuffer()
-    for item in token
+    for item in tokens
+        write(io, flatten(item), " ")
+    end
+    String(take!(io))
+end
+
+function flatten(tokens::Array)
+    io = IOBuffer()
+    for item in tokens
         write(io, flatten(item), " ")
     end
     String(take!(io))
@@ -15,17 +23,15 @@ end
 function flatten(token::Dict)
     io = IOBuffer()
     for (k,v) in token
-        write(io, flatten(k), " ")
-        write(io, flatten(v), " ")
+        write(io, flatten(k), " ", flatten(v), " ")
     end
     String(take!(io))
 end
 
-function flatten{T<:Number, U<:AbstractString}(token::Tuple{T, U}...)
+function flatten(token::Tuple{T, U}...) where {T<:Number, U<:AbstractString}
     io = IOBuffer()
     for item in token
-        write(io, flatten(item[1]), " ")
-        write(io, flatten(item[2]), " ")
+        write(io, flatten(item[1]), " ", flatten(item[2]), " ")
     end
     String(take!(io))
 end
@@ -44,35 +50,18 @@ macro redisfunction(command, parser, args...)
     command = split(command, '_')
     return quote
         function $(fn_name)(conn::RedisConnection, $(args...))
-            if !is_connected(conn)
-                conn = reconnect(conn)
-            end
             command_str = flatten_command($(command...), $(args...))
-            reply = redis_command(conn, command_str)
-            r = unsafe_load(reply)
-            s = $(parser)(r)
-            free_reply_object(reply)
-            return s
+            redis_command(conn, command_str, $parser)
         end
 
         # transaction connections always return a simple string "QUEUED"
         function $(fn_name)(conn::TransactionConnection, $(args...))
-            if !is_connected(conn)
-                conn = reconnect(conn)
-            end
             command_str = flatten_command($(command...), $(args...))
-            reply = redis_command(conn, command_str)
-            r = unsafe_load(reply)
-            s = parse_string_reply(r)
-            free_reply_object(reply)
-            return s
+            redis_command(conn, command_str, parse_string_reply)
         end
 
         # pipelined connections do not reply
         function $(fn_name)(conn::PipelineConnection, $(args...))
-            if !is_connected(conn)
-                conn = reconnect(conn)
-            end
             command_str = flatten_command($(command...), $(args...))
             redis_command(conn, command_str)
             enqueue!(conn.parsers, $(parser))
@@ -86,15 +75,8 @@ macro sentinelfunction(command, parser, args...)
     fn_name = esc(Symbol(string("sentinel_", command)))
     return quote
         function $(fn_name)(conn::SentinelConnection, $(args...))
-            if !is_connected(conn)
-                conn = reconnect(conn)
-            end
             command_str = flatten_command("sentinel", $command, $(args...))
-            reply = redis_command(conn, command_str)
-            r = unsafe_load(reply)
-            s = $(parser)(r)
-            free_reply_object(reply)
-            return s
+            redis_command(conn, command_str, $parser)
         end
     end
 end
@@ -103,33 +85,45 @@ macro clusterfunction(command, parser, args...)
     fn_name = esc(Symbol(string("cluster_", command)))
     return quote
         function $(fn_name)(conn::RedisConnectionBase, $(args...))
-            if !is_connected(conn)
-                conn = reconnect(conn)
-            end
             command_str = flatten_command("cluster", $command, $(args...))
-            reply = redis_command(conn, command_str)
-            r = unsafe_load(reply)
-            s = $(parser)(r)
-            free_reply_object(reply)
-            return s
+            redis_command(conn, command_str, $parser)
         end
     end
 end
 
-redis_command(conn::RedisConnectionBase, command_str::String) =
+function redis_command(conn::RedisConnectionBase, command_str::String, parser::Function)
+    if !is_connected(conn)
+        conn = reconnect(conn)
+    end
+    reply = ccall((:redisCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
+        conn.context, command_str)
+    r = unsafe_load(reply)
+    s = parser(r)
+    free_reply_object(reply)
+    s
+end
+
+function redis_command(conn::RedisConnectionBase, command_str::String)
+    if !is_connected(conn)
+        conn = reconnect(conn)
+    end
     ccall((:redisCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
         conn.context, command_str)
+end
 
-redis_command(conn::PipelineConnection, command_str::String) =
+function redis_command(conn::PipelineConnection, command_str::String)
+    if !is_connected(conn)
+        conn = reconnect(conn)
+    end
     ccall((:redisAppendCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
         conn.context, command_str)
-
+end
 
 parse_string_reply(reply::RedisReply) =
     ccall(:jl_pchar_to_string, Ref{String}, (Ptr{UInt8}, Int), reply.str, reply.len)
 
 function parse_nullable_str_reply(reply::RedisReply)
-    if reply.rtype == 1 || reply.rtype == 5 || reply.rtype == 6
+    if contains(==, STRING_REPLIES, reply.rtype)
         Nullable{String}(ccall(:jl_pchar_to_string, Ref{String}, (Ptr{UInt8}, Int),
             reply.str, reply.len))
     else
@@ -140,7 +134,7 @@ end
 parse_int_reply(reply::RedisReply) = reply.integer
 
 parse_nullable_int_reply(reply::RedisReply) =
-    reply.rtype == 4 ? Nullable{Int}() : reply.integer
+    reply.rtype == REPLY_NIL ? Nullable{Int}() : reply.integer
 
 function parse_array_reply(reply::RedisReply)
     results = Array{String, 1}(0)
@@ -148,7 +142,7 @@ function parse_array_reply(reply::RedisReply)
     replies = unsafe_wrap(Array, reply.element, reply.elements)
     for ix in 1:length(replies)
         ur = unsafe_load(replies[ix])
-        if ur.rtype == 1 || ur.rtype == 5 || ur.rtype == 6
+        if contains(==, STRING_REPLIES, ur.rtype)
             push!(results, parse_string_reply(ur))
         else
             rec = parse_array_reply(ur)
@@ -166,11 +160,11 @@ function parse_nullable_arr_reply(reply::RedisReply)
     replies = unsafe_wrap(Array, reply.element, reply.elements)
     for ix in 1:length(replies)
         ur = unsafe_load(replies[ix])
-        if ur.rtype == 1 || ur.rtype == 5 || ur.rtype == 6
+        if contains(==, STRING_REPLIES, ur.rtype)
             push!(results, parse_string_reply(ur))
-        elseif ur.rtype == 3
+        elseif ur.rtype == REPLY_INTEGER
             push!(results, parse_nullable_int_reply(ur))
-        elseif ur.rtype == 4
+        elseif ur.rtype == REPLY_NIL
             push!(results, Nullable{String}())
         else
             rec = parse_nullable_arr_reply(ur)

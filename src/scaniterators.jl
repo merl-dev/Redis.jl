@@ -4,18 +4,18 @@ import Base: start, next, done, eltype, length
 
 abstract type ScanIterator end
 
-iteratorsize{T<:ScanIterator}(::Type{T}) = SizeUnknown()
-eltype{T<:ScanIterator}(::Type{T}) = String
-start{T<:ScanIterator}(ks::T) = 1
-done{T<:ScanIterator}(ks::T, state) = scancomplete(ks) && state > length(ks.items)
-length{T<:ScanIterator}(ks::T) = length(ks.items)
-scancomplete{T<:ScanIterator}(ks::T) = ks.cursor == "0" && ks.hascanned
+iteratorsize(::Type{T}) where {T<:ScanIterator} = SizeUnknown()
+eltype(::Type{T}) where {T<:ScanIterator} = String
+start(ks::T) where {T<:ScanIterator} = 1
+done(ks::T, state) where {T<:ScanIterator} = scancomplete(ks) && state > length(ks.items)
+length(ks::T) where {T<:ScanIterator} = length(ks.items)
+scancomplete(ks::T) where {T<:ScanIterator} = ks.cursor == "0" && ks.hascanned
 
 """retrieve the scan's results array"""
-results{T<:ScanIterator}(ks::T) = ks.items
+results(ks::T) where {T<:ScanIterator} = ks.items
 
 """not implemented since `collect` would block the server"""
-Base.collect{T<:ScanIterator}(ks::T) = warn("blocking operation not implemented")
+Base.collect(ks::T) where {T<:ScanIterator} = warn("blocking operation not implemented")
 
 type AllKeyScanner <: ScanIterator
     conn::RedisConnection

@@ -30,16 +30,8 @@ end
 @redisfunction "sort" parse_array_reply key options...
 @redisfunction "ttl" parse_int_reply key
 
-function Base.keytype(conn::RedisConnectionBase, key)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, string("type", " ", key))
-    r = unsafe_load(reply)
-    s = parse_string_reply(r)
-    free_reply_object(reply)
-    return s
-end
+Base.keytype(conn::RedisConnectionBase, key) =
+    redis_command(conn, string("type", " ", key), parse_string_reply)
 
 # String commands
 @redisfunction "append" parse_int_reply key value
@@ -141,15 +133,12 @@ end
 
 function _build_store_internal(destination, numkeys, keys, weights, aggregate, command)
     length(keys) > 0 || throw(ClientException("Must supply at least one key"))
-    suffix = AbstractString[]
+    suffix = Array{String, 1}(0)
     if length(weights) > 0
         suffix = map(string, weights)
         unshift!(suffix, "weights")
     end
-    if aggregate != Aggregate.NotSet
-        push!(suffix, "aggregate")
-        push!(suffix, aggregate)
-    end
+    aggregate != Aggregate.NotSet && push!(suffix, "aggregate", aggregate)
     vcat([command, destination, string(numkeys)], keys, suffix)
 end
 
@@ -157,30 +146,15 @@ end
 function zinterstore(conn::RedisConnection, destination, numkeys, keys::Array,
             weights=[]; aggregate=Aggregate.NotSet)
     command = _build_store_internal(destination, numkeys, keys, weights, aggregate, "zinterstore")
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
     command_str = flatten_command(command...)
-    reply = redis_command(conn, command_str)
-    r = unsafe_load(reply)
-    s = parse_int_reply(r)
-    free_reply_object(reply)
-    return s
+    redis_command(conn, command_str, parse_int_reply)
 end
 
 function zunionstore(conn::RedisConnection, destination, numkeys::Integer, keys::Array,
         weights=[]; aggregate=Aggregate.NotSet)
     command = _build_store_internal(destination, numkeys, keys, weights, aggregate, "zunionstore")
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
     command_str = flatten_command(command...)
-    reply = redis_command(conn, command_str)
-    r = unsafe_load(reply)
-    s = parse_int_reply(r)
-    free_reply_object(reply)
-    return s
-
+    redis_command(conn, command_str, parse_int_reply)
 end
 
 # HyperLogLog commands
@@ -195,62 +169,22 @@ end
 @redisfunction "quit" parse_string_reply
 @redisfunction "select" parse_string_reply index
 
-# Transaction commands require a TransactionConnection
-function multi(trans::TransactionConnection)
-    if !is_connected(trans)
-        trans = reconnect(trans)
-    end
-    reply = redis_command(trans, "multi")
-    r = unsafe_load(reply)
-    pr = parse_string_reply(r)
-    free_reply_object(reply)
-    pr
-end
+multi(trans::TransactionConnection) =
+    redis_command(trans, "multi", parse_string_reply)
 
-function exec(trans::TransactionConnection)
-    if !is_connected(trans)
-        trans = reconnect(trans)
-    end
-    reply = redis_command(trans, "exec")
-    r = unsafe_load(reply)
-    pr = parse_nullable_arr_reply(r)
-    free_reply_object(reply)
-    pr
-end
+exec(trans::TransactionConnection) =
+    redis_command(trans, "exec", parse_nullable_arr_reply)
 
-function discard(trans::TransactionConnection)
-    if !is_connected(trans)
-        trans = reconnect(trans)
-    end
-    reply = redis_command(trans, "discard")
-    r = unsafe_load(reply)
-    pr = parse_string_reply(r)
-    free_reply_object(reply)
-    pr
-end
+discard(trans::TransactionConnection) =
+    redis_command(trans, "discard", parse_string_reply)
 
 function watch(trans::TransactionConnection, keys...)
-    if !is_connected(trans)
-        trans = reconnect(trans)
-    end
     command_str = flatten_command("watch", keys...)
-    reply = redis_command(trans, command_str)
-    r = unsafe_load(reply)
-    pr = parse_string_reply(r)
-    free_reply_object(reply)
-    pr
+    redis_command(trans, command_str, parse_string_reply)
 end
 
-function unwatch(trans::TransactionConnection)
-    if !is_connected(trans)
-        trans = reconnect(trans)
-    end
-    reply = redis_command(trans, "unwatch")
-    r = unsafe_load(reply)
-    pr = parse_string_reply(r)
-    free_reply_object(reply)
-    pr
-end
+unwatch(trans::TransactionConnection) =
+    redis_command(trans, "unwatch", parse_string_reply)
 
 # Scripting
 @redisfunction "evalsha" parse_nullable_str_reply sha1 numkeys keys args
@@ -264,31 +198,14 @@ end
 @redisfunction "bgsave" parse_string_reply
 @redisfunction "client_pause" parse_string_reply timeout
 
-function client_kill_addr(conn::RedisConnectionBase, addr, port)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, "client kill $addr:$port")
-    s = parse_string_reply(unsafe_load(reply))
-    free_reply_object(reply)
-    return s
-end
+client_kill_addr(conn::RedisConnectionBase, addr, port) =
+    redis_command(conn, "client kill $addr:$port", parse_string_reply)
 
-function client_kill_filt(conn::RedisConnectionBase, filters::Dict{AbstractString, AbstractString})
-    reply = redis_command(conn, string("client kill ", flatten(filters)))
-    i = parse_int_reply(unsafe_load(reply))
-    free_reply_object(reply)
-    return i
-end
+client_kill_filt(conn::RedisConnectionBase, filters::Dict{T, T}) where {T<:AbstractString} =
+    redis_command(conn, string("client kill ", flatten(filters)), parse_int_reply)
 
 function client_list(conn::RedisConnectionBase; asdict=false)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, "client list")
-    r = unsafe_load(reply)
-    clients = parse_nullable_str_reply(r)
-    free_reply_object(reply)
+    clients = redis_command(conn, "client list", parse_nullable_str_reply)
 
     if asdict
         results = Array{Dict{AbstractString, Any},1}()
@@ -315,13 +232,7 @@ end
 @redisfunction "command_info" parse_array_reply command commands...
 #@redisfunction "config_get" parse_array_reply parameter
 function config_get(conn::RedisConnectionBase, parameter; asdict=true)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, "config get $parameter")
-    r = unsafe_load(reply)
-    response = parse_array_reply(r)
-    free_reply_object(reply)
+    response = redis_command(conn, "config get $parameter", parse_array_reply)
 
     if asdict
         results = Dict{AbstractString, AbstractString}()
@@ -339,48 +250,12 @@ end
 @redisfunction "dbsize" parse_int_reply
 @redisfunction "flushall" parse_string_reply
 @redisfunction "flushdb" parse_string_reply
-
-function object_refcount(conn::RedisConnectionBase, key)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, string("object refcount ", key))
-    r = unsafe_load(reply)
-    i = parse_nullable_int_reply(r)
-    free_reply_object(reply)
-    return i
-end
-
-function object_idletime(conn::RedisConnectionBase, key)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, string("object idletime ", key))
-    r = unsafe_load(reply)
-    i = parse_nullable_int_reply(r)
-    free_reply_object(reply)
-    return i
-end
-
-function object_encoding(conn::RedisConnectionBase, key)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, string("object encoding ", key))
-    r = unsafe_load(reply)
-    s = parse_nullable_str_reply(r)
-    free_reply_object(reply)
-    return s
-end
+@redisfunction "object_refcount" parse_nullable_int_reply key
+@redisfunction "object_idletime" parse_nullable_int_reply key
+@redisfunction "object_encoding" parse_nullable_str_reply key
 
 function debug_object(conn::RedisConnectionBase, key; asdict=true)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, string("debug object ", key))
-    r = unsafe_load(reply)
-    response = parse_string_reply(r)
-    free_reply_object(reply)
+    response = redis_command(conn, string("debug object ", key), parse_string_reply)
 
     if asdict
         results = Dict{AbstractString, AbstractString}()
@@ -396,25 +271,12 @@ function debug_object(conn::RedisConnectionBase, key; asdict=true)
 end
 
 function info(conn::RedisConnectionBase; asdict=true)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, "info")
-    r = unsafe_load(reply)
-    response = parse_nullable_str_reply(r)
-    free_reply_object(reply)
-
+    response = redis_command(conn, "info", parse_nullable_str_reply)
     asdict ? _info(response) : response
 end
 
 function info(conn::RedisConnectionBase, section; asdict=true)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, "info $section")
-    r = unsafe_load(reply)
-    response = parse_nullable_str_reply(r)
-    free_reply_object(reply)
+    response = redis_command(conn, "info $section", parse_nullable_str_reply)
     asdict ? _info(response) : response
 end
 
@@ -435,22 +297,12 @@ end
 @redisfunction "slaveof" parse_string_reply host port
 @redisfunction "time" parse_array_reply
 
-function shutdown(conn::RedisConnectionBase; save=true)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = ccall((:redisCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
-        "shutdown " * ifelse(save, "save", "nosave"))
-end
-
 # PubSub
 function _subscribe(conn::SubscriptionConnection, channels::Array)
     msgs = Array{String, 1}(0)
     for channel in channels
-        reply = redis_command(conn, "subscribe $channel")
-        r = unsafe_load(reply)
-        push!(msgs, parse_string_reply(r))
-        free_reply_object(reply)
+        reply = redis_command(conn, "subscribe $channel", parse_string_reply)
+        push!(msgs, reply)
     end
     msgs
 end
@@ -470,10 +322,8 @@ end
 function _psubscribe(conn::SubscriptionConnection, channels::Array)
     msgs = Array{String, 1}(0)
     for channel in channels
-        reply = redis_command(conn, "psubscribe $channel")
-        r = unsafe_load(reply)
-        push!(msgs, parse_string_reply(r))
-        free_reply_object(reply)
+        reply = redis_command(conn, "psubscribe $channel", parse_string_reply)
+        push!(msgs, reply)
     end
     msgs
 end
@@ -529,10 +379,7 @@ end
 # Return the ip and port number of the master with that name
 function sentinel_getmasteraddrbyname(conn::SentinelConnection, mastername)
     command_str = flatten_command("sentinel", "get-master-addr-by-name", mastername)
-    reply = redis_command(conn, command_str)
-    r = parse_array_reply(unsafe_load(reply))
-    free_reply_object(reply)
-    return r
+    redis_command(conn, command_str, parse_array_reply)
 end
 
 # Geo commands
@@ -560,35 +407,17 @@ end
 @clusterfunction "cluster_setconfigepoch" parse_string_reply epoch
 @clusterfunction "cluster_slots" parse_nullable_arr_reply
 function cluster_slaves(conn, nodeid)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, "cluster nodes")
-    r = unsafe_load(reply)
-    response = parse_string_reply(r)
-    free_reply_object(reply)
-    split(response, '\n')[1:end-1]
+    reply = redis_command(conn, "cluster nodes", parse_string_reply)
+    split(reply, '\n')[1:end-1]
 end
 
 function cluster_nodes(conn)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, "cluster nodes")
-    r = unsafe_load(reply)
-    response = parse_string_reply(r)
-    free_reply_object(reply)
-    split(response, '\n')[1:end-1]
+    reply = redis_command(conn, "cluster nodes", parse_string_reply)
+    split(reply, '\n')[1:end-1]
 end
 
 function cluster_info(conn::RedisConnectionBase; asdict=true)
-    if !is_connected(conn)
-        conn = reconnect(conn)
-    end
-    reply = redis_command(conn, string("debug object ", key))
-    r = unsafe_load(reply)
-    response = parse_array_reply(r)
-    free_reply_object(reply)
+    response = redis_command(conn, string("debug object ", key), parse_array_reply)
 
     if asdict
         results = Dict{AbstractString, AbstractString}()

@@ -431,6 +431,7 @@ end
 end
 #
 @testset "Pub/Sub" begin
+    # Pub/Sub is only synchronous/blocking
     # g(y) = print(y)
     # channel1cb(y) = println("channel func 1: ", y)
     # channel2cb(y) = println("channel func 2: ", y)

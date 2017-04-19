@@ -136,6 +136,13 @@ export  cluster_info,
 
 const REDIS_ERR = -1
 const REDIS_OK = 0
+const REPLY_STRING = 1
+const REPLY_ARRAY = 2
+const REPLY_INTEGER = 3
+const REPLY_NIL = 4
+const REPLY_STATUS = 5
+const REPLY_ERR = 6
+const STRING_REPLIES = [REPLY_STRING, REPLY_STATUS, REPLY_ERR]
 
 "define a default callback that does nothing"
 nullcb(args) = nothing

@@ -154,6 +154,14 @@ function reconnect(conn::RedisConnectionBase)
     end
 end
 
+function shutdown(conn::RedisConnectionBase; save=true)
+    if !is_connected(conn)
+        conn = reconnect(conn)
+    end
+    reply = ccall((:redisCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
+        "shutdown " * ifelse(save, "save", "nosave"))
+end
+
 # the sole purpose of this connection type is to define a different set of parsers
 # for all of the redis commands.
 struct TransactionConnection <: SubscribableConnection
