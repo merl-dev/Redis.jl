@@ -499,7 +499,9 @@ end
 
     redisinfo = Redis.info(conn, "memory")
     @test issubset(["used_memory_overhead", "maxmemory", "used_memory"], keys(redisinfo))
-    @test Array(role(conn))  == ["master", 0]
+    rle = Array(role(conn))
+    @test rle[1] == "master"
+    @test isa(rle[2], Int)
     @test Redis.slaveof(conn, "localhost", 6379) == "OK"
     @test slaveof(conn, "no", "one") == "OK"
     tm = Redis.time(conn)

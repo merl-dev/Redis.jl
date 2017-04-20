@@ -253,7 +253,7 @@ end
 @redisfunction "object_refcount" parse_nullable_int_reply key
 @redisfunction "object_idletime" parse_nullable_int_reply key
 @redisfunction "object_encoding" parse_nullable_str_reply key
-
+@redisfunction "debug_sleep" parse_int_reply interval
 function debug_object(conn::RedisConnectionBase, key; asdict=true)
     response = redis_command(conn, string("debug object ", key), parse_string_reply)
 
@@ -417,7 +417,7 @@ function cluster_nodes(conn)
 end
 
 function cluster_info(conn::RedisConnectionBase; asdict=true)
-    response = redis_command(conn, string("debug object ", key), parse_array_reply)
+    response = redis_command(conn, "cluster info", parse_array_reply)
 
     if asdict
         results = Dict{AbstractString, AbstractString}()

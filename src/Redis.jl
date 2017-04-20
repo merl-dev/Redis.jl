@@ -10,7 +10,8 @@ end
 
 using Base.Dates, DataStructures, NullableArrays
 
-import Base: convert, get, keys, time, collect, ==, show, sort, start, done, next, eltype
+import Base: info, get, keys, time, collect, ==, show, sort, start, done, next, eltype,
+        quit, select, touch, dump
 
 export  RedisException,
         ConnectionException,
@@ -31,6 +32,7 @@ export  RedisException,
         disconnect,
         is_connected,
         redis_command,
+        resp,
         parse_string_reply,
         parse_int_reply,
         parse_array_reply,
@@ -77,8 +79,8 @@ export evalscript, evalsha, script_exists, script_flush, script_kill, script_loa
 export bgrewriteaof, bgsave, client_list, client_pause, client_getname, client_setname,
        client_reply, client_kill_addr, client_kill_filt, cluster_slots, command,
        command_count, command_info, config_get, config_resetstat, config_rewrite,
-       config_set, dbsize, debug_object, object_refcount, object_idletime, object_encoding,
-       flushall, flushdb, lastsave, role, save, shutdown, slaveof, time
+       config_set, dbsize, debug_object, object_refcount, debug_sleep, object_idletime,
+       object_encoding, flushall, flushdb, lastsave, role, save, shutdown, slaveof, time
 # *SCAN Iterators
 export AllKeyScanner, KeyScanner, start, next, done
 # Pipeline commands

@@ -119,6 +119,24 @@ function redis_command(conn::PipelineConnection, command_str::String)
         conn.context, command_str)
 end
 
+const CRLF= "\r\n"
+const BLKCHAR = '\$'
+const ARRCHAR = '*'
+
+"""
+Formatting of outgoing commands using RESP protocol. As per https://redis.io/topics/protocol.
+"""
+function resp(tokens::Array{T, 1}) where {T<:AbstractString}
+    io = IOBuffer()
+    write(io, ARRCHAR, string(length(tokens)), CRLF)
+    for token in tokens
+        write(io, BLKCHAR, string(length(token)), CRLF, token, CRLF)
+    end
+    String(take!(io))
+end
+
+resp(command::T) where {T<:AbstractString} = resp(split(command, ' '))
+
 parse_string_reply(reply::RedisReply) =
     ccall(:jl_pchar_to_string, Ref{String}, (Ptr{UInt8}, Int), reply.str, reply.len)
 
