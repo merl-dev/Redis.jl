@@ -502,6 +502,7 @@ end
         for port in [6380, 6381]
             shutdown(RedisConnection(port=port))
         end
+        isfile(joinpath(confpath, "dump.rdb")) && rm(joinpath(confpath, "dump.rdb"))
 end
 
 @testset "Cluster" begin
