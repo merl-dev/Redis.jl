@@ -98,7 +98,7 @@ export  latency_latest,
         latency_doctor
 # Sentinel commands
 export  sentinel_master,
-        sentinel_master,
+        sentinel_masters,
         sentinel_slaves,
         sentinel_sentinels,
         sentinel_reset,

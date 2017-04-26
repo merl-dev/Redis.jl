@@ -4,14 +4,6 @@ export flatten
 flatten(token::Number) = string(token)
 flatten(token::AbstractString) = token
 
-function flatten(tokens::Set)
-    io = IOBuffer()
-    for item in tokens
-        write(io, flatten(item), " ")
-    end
-    String(take!(io))
-end
-
 function flatten(tokens::Array)
     io = IOBuffer()
     for item in tokens
@@ -39,7 +31,7 @@ end
 export flatten_command
 function flatten_command(command...)
     io = IOBuffer()
-    @inbounds for i in 1:length(command)
+    for i in 1:length(command)
         write(io, flatten(command[i]), " ")
     end
     String(take!(io))
@@ -125,6 +117,8 @@ const ARRCHAR = '*'
 
 """
 Formatting of outgoing commands using RESP protocol. As per https://redis.io/topics/protocol.
+
+Unused.
 """
 function resp(tokens::Array{T, 1}) where {T<:AbstractString}
     io = IOBuffer()
@@ -134,7 +128,6 @@ function resp(tokens::Array{T, 1}) where {T<:AbstractString}
     end
     String(take!(io))
 end
-
 resp(command::T) where {T<:AbstractString} = resp(split(command, ' '))
 
 parse_string_reply(reply::RedisReply) =

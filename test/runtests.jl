@@ -443,7 +443,65 @@ end
 end
 
 @testset "Sentinel" begin
+    redispath = joinpath(homedir(), "Downloads", "redis-unstable")
+    confpath = Pkg.dir("Redis", "test")
+    info("adding slaves to master")
+        for port in [6380, 6381]
+            run(`$redispath/src/redis-server --port $port --slaveof 127.0.0.1 6379 --daemonize yes`)
+        end
+    info("starting sentinels...")
+        ports = zip(10001:10003, 6379:6381)
+        sentconns = Array{SentinelConnection, 1}(0)
+        sentrunids = Array{AbstractString, 1}(0)
+        for (sentport, srvport) in ports
+            open(joinpath(confpath, "sentinel-$sentport.conf"), "w") do fh
+                write(fh, "port $sentport\n")
+                write(fh, "daemonize yes\n")
+                write(fh, "sentinel monitor mymaster 127.0.0.1 $srvport 2\n")
+                write(fh, "sentinel down-after-milliseconds mymaster 2000\n")
+            end
+            run(`$redispath/src/redis-sentinel $confpath/sentinel-$sentport.conf`)
+            sleep(2)
+            sc = SentinelConnection(port=sentport)
+            push!(sentrunids, info(sc, "server")["run_id"])
+            push!(sentconns, sc)
+        end
+    info("tests...")
+        reply = sentinel_slaves(sentconns[1], "mymaster")
+        ix = find(x->x=="name", reply)
+        reply = reply[ix+1]
+        @test contains(==, reply, "127.0.0.1:6380")
+        @test contains(==, reply, "127.0.0.1:6381")
+        for (sentconn, (sentport, srvport)) in zip(sentconns, ports)
+            @test contains(==, sentinel_master(sentconn, "mymaster"), string(srvport))
+            @test contains(==, sentinel_masters(sentconn), string(srvport))
+            reply = sentinel_ckquorum(sentconn, "mymaster")
+            # for as yet unknown reason one sentinel can sometimes be found in unusable state
+            @test (reply == "OK 3 usable Sentinels. Quorum and failover authorization can be reached") ||
+                  (reply == "OK 2 usable Sentinels. Quorum and failover authorization can be reached")
+            @test sentinel_getmasteraddrbyname(sentconn, "mymaster") == ["127.0.0.1", string(srvport)]
+            rm(joinpath(confpath, "sentinel-$sentport.conf"))
+            removed = !isfile(confpath, "sentinel-$sentport.conf")
+            @test sentinel_flushconfig(sentconn) == "OK"
+            rewritten = isfile(confpath, "sentinel-$sentport.conf")
+            @test removed && rewritten
+        end
+        @test sentinel_failover(sentconns[1], "mymaster") == "OK"
+        @test sentinel_reset(sentconns[1], "mymaster") == 1
+        # the following give incorrect results, even in redis-cli... check this further
+        #reply = sentinel_sentinels(sentconns[1], "mymaster")
+        #ix = find(x->x=="runid", reply)
+        #@test reply[ix+1] == [sentrundis[2] seentrunids[3]]
 
+    info("cleanup sentinels")
+        for sentconn in sentconns
+            port = info(sentconn, "server")["tcp_port"]
+            shutdown(sentconn)
+            rm(joinpath(confpath, "sentinel-$port.conf"))
+        end
+        for port in [6380, 6381]
+            shutdown(RedisConnection(port=port))
+        end
 end
 
 @testset "Cluster" begin
