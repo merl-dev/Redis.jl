@@ -443,11 +443,11 @@ end
 end
 
 @testset "Sentinel" begin
-    redispath = joinpath(homedir(), "Downloads", "redis-unstable")
-    confpath = Pkg.dir("Redis", "test")
+    redispath = joinpath("/",split(info(conn, "server")["executable"], '/')[2:end-1]...)
+    confpath = dirname(@__FILE__)
     info("adding slaves to master")
         for port in [6380, 6381]
-            run(`$redispath/src/redis-server --port $port --slaveof 127.0.0.1 6379 --daemonize yes`)
+            run(`$redispath/redis-server --port $port --slaveof 127.0.0.1 6379 --daemonize yes`)
         end
     info("starting sentinels...")
         ports = zip(10001:10003, 6379:6381)
@@ -460,7 +460,7 @@ end
                 write(fh, "sentinel monitor mymaster 127.0.0.1 $srvport 2\n")
                 write(fh, "sentinel down-after-milliseconds mymaster 2000\n")
             end
-            run(`$redispath/src/redis-sentinel $confpath/sentinel-$sentport.conf`)
+            run(`$redispath/redis-sentinel $confpath/sentinel-$sentport.conf`)
             sleep(2)
             sc = SentinelConnection(port=sentport)
             push!(sentrunids, info(sc, "server")["run_id"])
