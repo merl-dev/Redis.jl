@@ -29,6 +29,7 @@ export  RedisException,
         SentinelConnection,
         @sentinelfunction,
         @clusterfunction,
+        ClusterNode,
         disconnect,
         is_connected,
         redis_command,
@@ -154,5 +155,6 @@ include("connections.jl")
 include("commands.jl")
 include("command_defs.jl")
 include("scaniterators.jl")
+include("clusters.jl")
 
 end

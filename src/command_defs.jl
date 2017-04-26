@@ -226,7 +226,7 @@ function client_list(conn::RedisConnectionBase; asdict=false)
 end
 @redisfunction "client_getname" parse_nullable_str_reply
 @redisfunction "client_setname" parse_string_reply name
-@redisfunction "cluster_slots" parse_array_reply
+
 @redisfunction "command" parse_array_reply
 @redisfunction "command_count" parse_int_reply
 @redisfunction "command_info" parse_array_reply command commands...
@@ -391,21 +391,22 @@ end
 @redisfunction "georadiusbymember" parse_array_reply key member radius units options...
 
 # Cluster commands
-@clusterfunction "cluster_addslots" parse_string_reply slots...
-@clusterfunction "cluster_delslots" parse_string_reply slots...
-@clusterfunction "cluster_getkeysinslot" parse_array_reply slot count
-@clusterfunction "cluster_meet" parse_string_reply ip port
-@clusterfunction "cluster_reset" parse_string_reply drasticness
-@clusterfunction "cluster_setslot" parse_string_reply slot subcommand...
-@clusterfunction "cluster_countfailurereports" parse_int_reply nodeid
-@clusterfunction "cluster_failover" parse_string_reply failovertype
-@clusterfunction "cluster_saveconfig" parse_string_reply
-@clusterfunction "cluster_countkeysinslot" parse_int_reply slot
-@clusterfunction "cluster_forget" parse_string_reply nodeid
-@clusterfunction "cluster_keyslot" parse_int_reply key
-@clusterfunction "cluster_replicate" parse_string_reply nodeid
-@clusterfunction "cluster_setconfigepoch" parse_string_reply epoch
-@clusterfunction "cluster_slots" parse_nullable_arr_reply
+#@redisfunction "cluster_slots" parse_array_reply
+@clusterfunction "addslots" parse_string_reply slots...
+@clusterfunction "delslots" parse_string_reply slots...
+@clusterfunction "getkeysinslot" parse_array_reply slot count
+@clusterfunction "meet" parse_string_reply ip port
+@clusterfunction "reset" parse_string_reply drasticness
+@clusterfunction "setslot" parse_string_reply slot subcommand...
+@clusterfunction "countfailurereports" parse_int_reply nodeid
+@clusterfunction "failover" parse_string_reply failovertype
+@clusterfunction "saveconfig" parse_string_reply
+@clusterfunction "countkeysinslot" parse_int_reply slot
+@clusterfunction "forget" parse_string_reply nodeid
+@clusterfunction "keyslot" parse_int_reply key
+@clusterfunction "replicate" parse_string_reply nodeid
+@clusterfunction "setconfigepoch" parse_string_reply epoch
+@clusterfunction "slots" parse_nullable_arr_reply
 function cluster_slaves(conn, nodeid)
     reply = redis_command(conn, "cluster nodes", parse_string_reply)
     split(reply, '\n')[1:end-1]
@@ -413,16 +414,18 @@ end
 
 function cluster_nodes(conn)
     reply = redis_command(conn, "cluster nodes", parse_string_reply)
-    split(reply, '\n')[1:end-1]
+    lines = split(reply, '\n')[1:end-1]
+
 end
 
 function cluster_info(conn::RedisConnectionBase; asdict=true)
-    response = redis_command(conn, "cluster info", parse_array_reply)
-
+    response = redis_command(conn, "cluster info", parse_string_reply)
+    lines = split(response, "\r\n")
     if asdict
         results = Dict{AbstractString, AbstractString}()
-        for i = 1:2: length(response)
-            results[response[i]] = response[i+1]
+        for line in lines[1:end-1]
+            splits = split(line, ":")
+            results[splits[1]] = splits[2]
         end
         results
     else

@@ -505,8 +505,43 @@ end
         isfile(joinpath(confpath, "dump.rdb")) && rm(joinpath(confpath, "dump.rdb"))
 end
 
-@testset "Cluster" begin
+@testset "Cluster:WIP" begin
+    redispath = joinpath("/",split(info(conn, "server")["executable"], '/')[2:end-1]...)
+    confpath = joinpath(Pkg.dir("Redis", "test"))
+    clusterpath = joinpath(homedir(), "Downloads", "redis-unstable", "utils", "create-cluster")
+    srcpath = joinpath(homedir(), "Downloads", "redis-unstable")
+    cd(clusterpath)
 
+    info("starting cluster nodes and creating cluster using modified redis-trib.rb")
+        run(`$clusterpath/create-cluster start`)
+        run(`$clusterpath/create-cluster create`)
+    cluster_conn = RedisConnection(port=30001)
+    # replace array with dict or new Cluster type enabling lookup node id / ipport / slave-master / slots
+    nodes = map(ClusterNode, cluster_nodes(cluster_conn))
+    @test length(nodes) == 6 # default value in create_cluster script
+    [@test x.linkstate == "connected" for x in nodes]
+    reply = cluster_info(cluster_conn)
+    @test reply["cluster_slots_assigned"] == "16384"
+    @test reply["cluster_state"] == "ok"
+    @test reply["cluster_size"] == "3"
+    @test reply["cluster_known_nodes"] == "6"
+
+    info("create one more node")
+        run(`$redispath/redis-server --port 30007 --cluster-enabled yes --daemonize yes`)
+    @test cluster_meet(cluster_conn, "127.0.0.1", 30007) == "OK"
+    nodes = map(ClusterNode, cluster_nodes(cluster_conn))
+    @test length(nodes) == 7
+    # need to search through `nodes` to find this id
+    @test cluster_forget(cluster_conn, "e48f6ebb8042e3ffcb7bb225dbad0ad4ef661b43") == "OK"
+    @test cluster_reset(cluster_conn)
+    @test length(cluster_nodes(cluster_conn))) == 1 # this node is now disconnected from cluster
+    cluster2_conn = RedisConnection(port=30002)
+    nodes2 = map(ClusterNode, cluster_nodes(cluster2_conn))
+    @test length(nodes2) == 7 # and this can be seen here, with one node in disconnected state
+
+    info("stopping nodes and and cleanup")
+        run(`$clusterpath/create-cluster stop`)
+        run(`$clusterpath/create-cluster clean`)
 end
 
 @testset "GeoSets" begin
