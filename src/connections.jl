@@ -148,7 +148,7 @@ disconnect(conn::RedisConnectionBase) =
     ccall((:redisFree, :libhiredis), Void, (Ptr{RedisContext},), conn.context)
 
 function reconnect(conn::RedisConnectionBase)
-    reply = ccall((:redisReconnect, :libhiredis), Ptr{RedisContext}, (Ptr{RedisContext},), conn.context)
+    reply = ccall((:redisReconnect, :libhiredis), Int32, (Ptr{RedisContext},), conn.context)
     if reply != REDIS_OK
         throw(ConnectionException(string("Failed to reconnect to Redis server: ", "undertermined")))
     end
@@ -156,7 +156,7 @@ end
 
 function shutdown(conn::RedisConnectionBase; save=true)
     if !is_connected(conn)
-        conn = reconnect(conn)
+        reconnect(conn)
     end
     reply = ccall((:redisCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}), conn.context,
         "shutdown " * ifelse(save, "save", "nosave"))

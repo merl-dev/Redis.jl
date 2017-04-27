@@ -4,14 +4,12 @@ julia:
 notifications:
   email: false
 before_install:
-  - sudo add-apt-repository ppa:ubuntu-toolchain-r/test -y
   - sudo apt-get -y update
-  - wget https://github.com/antirez/redis/archive/4.0.tar.gz
-  - tar xvzf 4.0.tar.gz
-  - cd redis-4.0 && make && sudo make install
+  - sudo apt-get -y install build-essential
+  - git clone https://github.com/antirez/redis.git
+  - cd redis && make && sudo make install
   - cd ..
-  - sudo apt-get install libhiredis-dev -y
 script:
-  - julia -e 'Pkg.init(); Pkg.clone(pwd()); Pkg.add("BinDeps"); Pkg.add("DataStructures"); Pkg.build("Redis"); Pkg.test("Redis", coverage=true)'
+  - julia -e 'Pkg.init(); Pkg.clone(pwd()); Pkg.add("DataStructures"); Pkg.test("Redis", coverage=true)'
 after_success:
   - julia -e 'cd(Pkg.dir("Redis")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(process_folder())'

@@ -85,7 +85,7 @@ end
 
 function redis_command(conn::RedisConnectionBase, command_str::String, parser::Function)
     if !is_connected(conn)
-        conn = reconnect(conn)
+        reconnect(conn)
     end
     reply = ccall((:redisCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
         conn.context, command_str)
@@ -97,7 +97,7 @@ end
 
 function redis_command(conn::RedisConnectionBase, command_str::String)
     if !is_connected(conn)
-        conn = reconnect(conn)
+        reconnect(conn)
     end
     ccall((:redisCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
         conn.context, command_str)
@@ -105,9 +105,9 @@ end
 
 function redis_command(conn::PipelineConnection, command_str::String)
     if !is_connected(conn)
-        conn = reconnect(conn)
+        reconnect(conn)
     end
-    ccall((:redisAppendCommand, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Ptr{UInt8}),
+    ccall((:redisAppendCommand, :libhiredis), Void, (Ptr{RedisContext}, Ptr{UInt8}),
         conn.context, command_str)
 end
 

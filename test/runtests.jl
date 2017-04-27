@@ -1,7 +1,8 @@
+# TODO: create TestSet type to pre and post each test set
 using Redis, NullableArrays, Base.Dates, Base.Test
 
 conn = RedisConnection()
-flushall(conn)
+
 # some random key names
 testkey = "Redis_Test_"*randstring()
 testkey2 = "Redis_Test_"*randstring()
@@ -16,6 +17,7 @@ const REDIS_PERSISTENT_KEY =  -1
 const REDIS_EXPIRED_KEY =  -2
 
 @testset "Strings" begin
+    flushall(conn)
     @test set(conn, testkey, s1) == "OK"
     @test isequal(get(conn, testkey), Nullable(s1))
     @test Redis.exists(conn, testkey) == 1
@@ -43,10 +45,10 @@ const REDIS_EXPIRED_KEY =  -2
     @test append(conn, testkey, s1) == length(s1)
     @test append(conn, testkey, s2) == length(s1) + length(s2)
     get(conn, testkey) == string(s1, s2)
-    del(conn, testkey);
 end
 
 @testset "Bits" begin
+    flushall(conn)
     @test setbit(conn,testkey, 0, 1) == 0
     @test setbit(conn,testkey, 2, 1) == 0
     @test getbit(conn, testkey, 0) == 1
@@ -75,10 +77,10 @@ end
     @test [getbit(conn, testkey3, i) for i in 0:3] == [0; 1; 1; 0]
     @test bitop(conn, "NOT", testkey3, testkey3) == 1
     @test [getbit(conn, testkey3, i) for i in 0:3] == [1; 0; 0; 1]
-    del(conn, testkey, testkey2, testkey3);
 end
 
 @testset "Dump" begin
+    flushall(conn)
     # TODO: DUMP AND RESTORE HAVE ISSUES
     #=
     set(conn, testkey, "10")
@@ -97,16 +99,17 @@ end
 
 @testset "Migrate" begin
     # TODO: test of `migrate` requires 2 server instances in Travis
+    flushall(conn)
     set(conn, testkey, s1)
     @test move(conn, testkey, 1) == 1
     @test Redis.exists(conn, testkey) == false
     @test Redis.select(conn, 1) == "OK"
     @test isequal(get(conn, testkey), Nullable{String}(s1))
-    del(conn, testkey)
     Redis.select(conn, 0);
 end
 
 @testset "Expiry" begin
+    flushall(conn)
     set(conn, testkey, s1)
     expire(conn, testkey, 1)
     sleep(1)
@@ -124,10 +127,10 @@ end
     @test pttl(conn, testkey) > 100
     @test persist(conn, testkey) == 1
     @test ttl(conn, testkey) == REDIS_PERSISTENT_KEY
-    del(conn, testkey, testkey2, testkey3);
 end
 
 @testset "Lists" begin
+    flushall(conn)
     @test lpush(conn, testkey, s1, s2, "a", "a", s3, s4) == 6
     @test isequal(lpop(conn, testkey), Nullable(s4))
     @test isequal(rpop(conn, testkey), Nullable(s1))
@@ -167,10 +170,10 @@ end
     sortablelist = [pi, 1, 2]
     lpush(conn, testkey3, sortablelist...)
     @test Array(Redis.sort(conn, testkey3)) == ["1.0", "2.0", "3.141592653589793"]
-    del(conn, testkey, testkey2, testkey3);
 end
 
 @testset "Hashes" begin
+    flushall(conn)
     @test hmset(conn, testhash, Dict(1 => 2, "3" => 4, "5" => "6")) == "OK"
     @test hexists(conn, testhash, 1) == true
     @test hexists(conn, testhash, "1") == true
@@ -192,10 +195,10 @@ end
     @test hlen(conn, testhash) == 5
     @test hincrby(conn, testhash, "1", 1) == 3
     @test isequal(hincrbyfloat(conn, testhash, "1", 1.5), Nullable("4.5"))
-    del(conn, testhash);
 end
 
 @testset "Sets" begin
+    flushall(conn)
     @test sadd(conn, testkey, s1) == true
     @test sadd(conn, testkey, s1) == false
     @test sadd(conn, testkey, s2) == true
@@ -217,10 +220,10 @@ end
     @test Array(sdiff(conn, testkey, testkey2)) == [s1]
     @test contains(==, [s1, s2, s3], get(spop(conn, testkey)))
     @test isnull(spop(conn, "empty_set"))
-    del(conn, testkey, testkey2, testkey3);
 end
 
 @testset "Sorted Sets" begin
+    flushall(conn)
     @test zadd(conn, testkey, 0, "a") == true
     @test zadd(conn, testkey, 1., "a") == false
     @test zadd(conn, testkey, 1., "b") == true
@@ -290,56 +293,55 @@ end
     del(conn, testkey3)
     vals2 = ["a", "b", "c", "d"]
     @test zinterstore(conn, testkey3, 2, [testkey, testkey2]) == 4
-    del(conn, testkey, testkey2, testkey3)
 end
 
 @testset "HyperLogLog" begin
+    flushall(conn)
     @test pfadd(conn, "hll", "a", "b", "c", "d", "e", "f", "g") == true
     @test pfcount(conn, "hll") == 7
     pfadd(conn, "hll1", "foo", "bar", "zap", "a")
     pfadd(conn, "hll2", "a", "b", "c", "foo")
     @test pfmerge(conn, "hll3", "hll1", "hll2") == "OK"
     @test pfcount(conn, "hll3") == 6
-    del(conn, "hll", "hll1", "hll2", "hll3")
 end
 
 @testset "Scan" begin
     @testset "keys" begin
+        flushall(conn)
         set(conn, testkey, s1)
         set(conn, testkey2, s2)
         set(conn, testkey3, s3)
         response = scan(conn, 0, "MATCH", testkey[1:3]*"*", "COUNT", 10)
         @test response[1] == "0"
         @test contains(==, [testkey, testkey2, testkey3], response[2])
-        del(conn, testkey, testkey2, testkey3)
     end
     @testset "sets" begin
+        flushall(conn)
         sadd(conn, testkey, s1, s2, s3)
         result = sscan(conn, testkey, 0)
         @test isequal(result[1], "0")
         @test contains(==, [s1, s2, s3], result[2])
-        del(conn, testkey)
     end
     @testset "ordered sets" begin
+        flushall(conn)
         zadd(conn, testkey, (1, s1), (2, s2), (3, s3))
         result = zscan(conn, testkey, 0)
         @test isequal(result[1], "0")
         @test Array(result[2:end]) == [s1, "1", s2, "2", s3, "3"]
-        del(conn, testkey)
     end
 
     @testset "hashes" begin
+        flushall(conn)
         hmset(conn, testkey, Dict("f1"=>s1, "f2"=>s2, "f3"=>s3))
         result = hscan(conn, testkey, 0)
         @test isequal(result[1], "0")
         @test Array(result[2:end]) == ["f1", s1, "f2", s2, "f3", s3]
-        del(conn, testkey)
     end
 end
 
 @testset "Scan Iterators" begin
     @testset "allkeyscanner" begin
-        del(conn, testkey, testkey2, testkey3)
+        flushall(conn)
         set(conn, testkey, s1)
         set(conn, testkey2, s2)
         set(conn, testkey3, s3)
@@ -349,7 +351,7 @@ end
         end
     end
     @testset "keyscanner" begin
-        del(conn, testkey, testkey2, testkey3)
+        flushall(conn)
         sadd(conn, testkey, s1, s2, s3)
         ks = keyscanner(conn, testkey, "*", 10)
         for anitem in ks
@@ -364,6 +366,7 @@ end
     end
 end
 @testset "Scripting" begin
+    flushall(conn)
     # script = "return {KEYS[1], KEYS[2], ARGV[1], ARGV[2]}"
     # args = ["key1", "key2", "first", "second"]
     # resp = evalscript(conn, script, 2, args, Redis.do_arr_command)
@@ -395,6 +398,7 @@ end
 end
 #
 @testset "multi/exec" begin
+    flushall(conn)
     @test_throws MethodError exec(conn)
     trans = TransactionConnection()
     @test multi(trans) == "OK"
@@ -407,10 +411,10 @@ end
     @test Array(resp[1:4]) == ["OK", s1, 1, "1"]
     @test isnull(resp[5])
     disconnect(trans)
-    del(conn, testkey, testkey2)
 end
 #
 @testset "Pipeline" begin
+    flushall(conn)
     pipe = PipelineConnection()
     set(pipe, testkey, s1)
     get(pipe, testkey)
@@ -443,6 +447,7 @@ end
 end
 
 @testset "Sentinel" begin
+    flushall(conn)
     redispath = joinpath("/",split(info(conn, "server")["executable"], '/')[2:end-1]...)
     confpath = dirname(@__FILE__)
     info("adding slaves to master")
@@ -506,45 +511,46 @@ end
 end
 
 @testset "Cluster:WIP" begin
-    redispath = joinpath("/",split(info(conn, "server")["executable"], '/')[2:end-1]...)
-    confpath = joinpath(Pkg.dir("Redis", "test"))
-    clusterpath = joinpath(homedir(), "Downloads", "redis-unstable", "utils", "create-cluster")
-    srcpath = joinpath(homedir(), "Downloads", "redis-unstable")
-    cd(clusterpath)
+    # redispath = joinpath("/",split(info(conn, "server")["executable"], '/')[2:end-1]...)
+    # confpath = joinpath(Pkg.dir("Redis", "test"))
+    # clusterpath = joinpath(homedir(), "Downloads", "redis-unstable", "utils", "create-cluster")
+    # srcpath = joinpath(homedir(), "Downloads", "redis-unstable")
+    # cd(clusterpath)
 
-    info("starting cluster nodes and creating cluster using modified redis-trib.rb")
-        run(`$clusterpath/create-cluster start`)
-        run(`$clusterpath/create-cluster create`)
-    cluster_conn = RedisConnection(port=30001)
-    # replace array with dict or new Cluster type enabling lookup node id / ipport / slave-master / slots
-    nodes = map(ClusterNode, cluster_nodes(cluster_conn))
-    @test length(nodes) == 6 # default value in create_cluster script
-    [@test x.linkstate == "connected" for x in nodes]
-    reply = cluster_info(cluster_conn)
-    @test reply["cluster_slots_assigned"] == "16384"
-    @test reply["cluster_state"] == "ok"
-    @test reply["cluster_size"] == "3"
-    @test reply["cluster_known_nodes"] == "6"
+    # info("starting cluster nodes and creating cluster using modified redis-trib.rb")
+    #     run(`$clusterpath/create-cluster start`)
+    #     run(`$clusterpath/create-cluster create`)
+    # cluster_conn = RedisConnection(port=30001)
+    # # replace array with dict or new Cluster type enabling lookup node id / ipport / slave-master / slots
+    # nodes = map(ClusterNode, cluster_nodes(cluster_conn))
+    # @test length(nodes) == 6 # default value in create_cluster script
+    # [@test x.linkstate == "connected" for x in nodes]
+    # reply = cluster_info(cluster_conn)
+    # @test reply["cluster_slots_assigned"] == "16384"
+    # @test reply["cluster_state"] == "ok"
+    # @test reply["cluster_size"] == "3"
+    # @test reply["cluster_known_nodes"] == "6"
 
-    info("create one more node")
-        run(`$redispath/redis-server --port 30007 --cluster-enabled yes --daemonize yes`)
-    @test cluster_meet(cluster_conn, "127.0.0.1", 30007) == "OK"
-    nodes = map(ClusterNode, cluster_nodes(cluster_conn))
-    @test length(nodes) == 7
-    # need to search through `nodes` to find this id
-    @test cluster_forget(cluster_conn, "e48f6ebb8042e3ffcb7bb225dbad0ad4ef661b43") == "OK"
-    @test cluster_reset(cluster_conn)
-    @test length(cluster_nodes(cluster_conn))) == 1 # this node is now disconnected from cluster
-    cluster2_conn = RedisConnection(port=30002)
-    nodes2 = map(ClusterNode, cluster_nodes(cluster2_conn))
-    @test length(nodes2) == 7 # and this can be seen here, with one node in disconnected state
+    # info("create one more node")
+    #     run(`$redispath/redis-server --port 30007 --cluster-enabled yes --daemonize yes`)
+    # @test cluster_meet(cluster_conn, "127.0.0.1", 30007) == "OK"
+    # nodes = map(ClusterNode, cluster_nodes(cluster_conn))
+    # @test length(nodes) == 7
+    # # need to search through `nodes` to find this id
+    # @test cluster_forget(cluster_conn, "e48f6ebb8042e3ffcb7bb225dbad0ad4ef661b43") == "OK"
+    # @test cluster_reset(cluster_conn)
+    # @test length(cluster_nodes(cluster_conn))) == 1 # this node is now disconnected from cluster
+    # cluster2_conn = RedisConnection(port=30002)
+    # nodes2 = map(ClusterNode, cluster_nodes(cluster2_conn))
+    # @test length(nodes2) == 7 # and this can be seen here, with one node in disconnected state
 
-    info("stopping nodes and and cleanup")
-        run(`$clusterpath/create-cluster stop`)
-        run(`$clusterpath/create-cluster clean`)
+    # info("stopping nodes and and cleanup")
+    #     run(`$clusterpath/create-cluster stop`)
+    #     run(`$clusterpath/create-cluster clean`)
 end
 
 @testset "GeoSets" begin
+    flushall(conn)
     @test geoadd(conn, "Sicily", 13.361389, 38.115556, "Palermo", 15.087269, 37.502669,
      "Catania") == 2
     @test get(geodist(conn, "Sicily", "Palermo", "Catania")) == "166274.1516"
@@ -567,6 +573,7 @@ end
 end
 
 @testset "Sundry" begin
+    flushall(conn)
     @test Redis.echo(conn, "astringtoecho") == "astringtoecho"
     @test Redis.ping(conn) == "PONG"
     @test flushall(conn) == "OK"
@@ -585,6 +592,7 @@ end
 end
 
 @testset "Cmds & Info" begin
+    flushall(conn)
     @test typeof(command(conn)) == Array{String, 1}
     @test typeof(dbsize(conn)) == Int64
 
@@ -605,6 +613,7 @@ end
 end
 
 @testset "Save" begin
+    flushall(conn)
     @test bgrewriteaof(conn) == "Background append only file rewriting started"
     sleep(3)
     @test bgsave(conn) == "Background saving started"
@@ -614,6 +623,7 @@ end
 end
 
 @testset "Client" begin
+    flushall(conn)
     @test client_setname(conn, s1) == "OK"
     @test get(client_getname(conn)) == s1
     begin
@@ -629,6 +639,7 @@ end
 end
 
 @testset "Config" begin
+    flushall(conn)
     result = config_get(conn, "*")
     # select a few items that should appear in result
     @test issubset(["dbfilename", "requirepass", "masterauth"], collect(keys(result)))
