@@ -4,38 +4,38 @@ export flatten
 flatten(token::Number) = string(token)
 flatten(token::AbstractString) = token
 
-function flatten(tokens::Array)
-    io = IOBuffer()
-    for item in tokens
-        write(io, flatten(item), " ")
-    end
-    String(take!(io))
-end
+# function flatten(tokens::Array)
+#     io = IOBuffer()
+#     for item in tokens
+#         write(io, flatten(item), " ")
+#     end
+#     String(take!(io))
+# end
 
 function flatten(token::Dict)
-    io = IOBuffer()
+    r=Array{String,1}(length(token)*2)
+    i=1
     for (k,v) in token
-        write(io, flatten(k), " ", flatten(v), " ")
+        r[i] = string(k)
+        r[i+1] = string(v)
+        i+=2
     end
-    String(take!(io))
+    r
 end
 
+
 function flatten(token::Tuple{T, U}...) where {T<:Number, U<:AbstractString}
-    io = IOBuffer()
+    r=AbstractString[]
     for item in token
-        write(io, flatten(item[1]), " ", flatten(item[2]), " ")
+        push!(r, string(item[1]))
+        push!(r, item[2])
     end
-    String(take!(io))
+    r
 end
 
 export flatten_command
-function flatten_command(command...)
-    io = IOBuffer()
-    for i in 1:length(command)
-        write(io, flatten(command[i]), " ")
-    end
-    String(take!(io))
-end
+
+flatten_command(command...) = vcat(map(flatten, command)...)
 
 macro redisfunction(command, parser, args...)
     fn_name = esc(Symbol(command))
@@ -43,7 +43,6 @@ macro redisfunction(command, parser, args...)
     return quote
         function $(fn_name)(conn::RedisConnection, $(args...))
             command_str = flatten_command($(command...), $(args...))
-            println(command_str)
             redis_command(conn, command_str, $parser)
         end
 
@@ -84,6 +83,19 @@ macro clusterfunction(command, parser, args...)
     end
 end
 
+function redis_command(conn::RedisConnectionBase, argv::Array{S,1}, parser::Function) where
+            S<:AbstractString
+    if !is_connected(conn)
+        reconnect(conn)
+    end
+    reply = ccall((:redisCommandArgv, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Int32, Ptr{Ptr{UInt8}},
+                Ptr{UInt}), conn.context, length(argv), argv, C_NULL)
+    r = unsafe_load(reply)
+    s = parser(r)
+    free_reply_object(reply)
+    s
+end
+
 function redis_command(conn::RedisConnectionBase, command_str::String, parser::Function)
     if !is_connected(conn)
         reconnect(conn)
@@ -104,6 +116,14 @@ function redis_command(conn::RedisConnectionBase, command_str::String)
         conn.context, command_str)
 end
 
+function redis_command(conn::PipelineConnection, argv::Array{S,1}) where S<:AbstractString
+    if !is_connected(conn)
+        reconnect(conn)
+    end
+    ccall((:redisAppendCommandArgv, :libhiredis), Ptr{RedisReply}, (Ptr{RedisContext}, Int32, Ptr{Ptr{UInt8}},
+            Ptr{UInt}), conn.context, length(argv), argv, C_NULL)
+end
+
 function redis_command(conn::PipelineConnection, command_str::String)
     if !is_connected(conn)
         reconnect(conn)
@@ -111,25 +131,6 @@ function redis_command(conn::PipelineConnection, command_str::String)
     ccall((:redisAppendCommand, :libhiredis), Void, (Ptr{RedisContext}, Ptr{UInt8}),
         conn.context, command_str)
 end
-
-const CRLF= "\r\n"
-const BLKCHAR = '\$'
-const ARRCHAR = '*'
-
-"""
-Formatting of outgoing commands using RESP protocol. As per https://redis.io/topics/protocol.
-
-Unused.
-"""
-function resp(tokens::Array{T, 1}) where {T<:AbstractString}
-    io = IOBuffer()
-    write(io, ARRCHAR, string(length(tokens)), CRLF)
-    for token in tokens
-        write(io, BLKCHAR, string(length(token)), CRLF, token, CRLF)
-    end
-    String(take!(io))
-end
-resp(command::T) where {T<:AbstractString} = resp(split(command, ' '))
 
 parse_string_reply(reply::RedisReply) =
     ccall(:jl_pchar_to_string, Ref{String}, (Ptr{UInt8}, Int), reply.str, reply.len)

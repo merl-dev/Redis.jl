@@ -224,13 +224,16 @@ function client_list(conn::RedisConnectionBase; asdict=false)
         return clients
     end
 end
-@redisfunction "client_getname" parse_nullable_str_reply
+client_getname(conn::RedisConnectionBase) = 
+    redis_command(conn, "client getname", parse_nullable_str_reply)
+
 @redisfunction "client_setname" parse_string_reply name
 
 @redisfunction "command" parse_array_reply
-@redisfunction "command_count" parse_int_reply
+command_count(conn::RedisConnectionBase) = 
+    redis_command(conn, "command count", parse_int_reply)
+
 @redisfunction "command_info" parse_array_reply command commands...
-#@redisfunction "config_get" parse_array_reply parameter
 function config_get(conn::RedisConnectionBase, parameter; asdict=true)
     response = redis_command(conn, "config get $parameter", parse_array_reply)
 
@@ -245,8 +248,10 @@ function config_get(conn::RedisConnectionBase, parameter; asdict=true)
     end
 end
 @redisfunction "config_set" parse_string_reply parameter value...
-@redisfunction "config_resetstat" parse_string_reply
-@redisfunction "config_rewrite" parse_string_reply
+config_resetstat(conn::RedisConnectionBase) = 
+    redis_command(conn, "config resetstat", parse_string_reply)
+config_rewrite(conn::RedisConnectionBase) = 
+    redis_command(conn, "config rewrite", parse_string_reply)    
 @redisfunction "dbsize" parse_int_reply
 @redisfunction "flushall" parse_string_reply
 @redisfunction "flushdb" parse_string_reply

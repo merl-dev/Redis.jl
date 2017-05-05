@@ -643,11 +643,13 @@ end
     result = config_get(conn, "*")
     # select a few items that should appear in result
     @test issubset(["dbfilename", "requirepass", "masterauth"], collect(keys(result)))
-    # oldconfig = config_get(conn, "save")["save"]
-    # newsave = "900 1 100 10 60 10000"
-    # @test config_set(conn, "save", "$newsave") == "OK"
-    # @test config_get(conn, "save") == ["save", newsave]
-    # @test config_rewrite(conn) == "OK"
+    oldconfig = config_get(conn, "save")["save"]
+    newsave = "900 1 100 10 60 10000"
+    @test config_set(conn, "save", "$newsave") == "OK"
+    @test config_get(conn, "save") == Dict("save" => newsave)
+    # under new permissioning on my test system user cannot rewrite config
+    # fix this by creating redis test instance
+    @test config_rewrite(conn) == "ERR Rewriting config file: Permission denied"
     # lines  = readlines(Redis.info(conn, "server", asdict=true)["config_file"], chomp=false)
     # @test findfirst(lines, "save 100 10\n") > 0
     # config_set(conn, "save", oldconfig)
