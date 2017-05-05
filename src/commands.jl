@@ -43,6 +43,7 @@ macro redisfunction(command, parser, args...)
     return quote
         function $(fn_name)(conn::RedisConnection, $(args...))
             command_str = flatten_command($(command...), $(args...))
+            println(command_str)
             redis_command(conn, command_str, $parser)
         end
 
